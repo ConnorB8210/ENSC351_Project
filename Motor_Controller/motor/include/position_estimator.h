@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include "hall.h"
+#include "bemf.h"
 
 typedef enum {
     POS_MODE_HALL = 0,
@@ -16,7 +18,7 @@ typedef struct {
     uint8_t  sector;       // 0..5 for 6-step
     bool     valid;
 } PosEst_t;
-
+void PosEst_setBemfHandle(BemfHandle_t *bh);
 void PosEst_init(PosMode_t mode);
 void PosEst_setMode(PosMode_t mode);
 void PosEst_update(void);
