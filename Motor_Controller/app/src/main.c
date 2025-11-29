@@ -18,6 +18,7 @@
 #include "bemf.h"
 #include "drv8302.h"
 
+#include "udp_server.h"
 #include "pwm_motor.h"
 #include "motor_control.h"
 #include "speed_measurement.h"
@@ -289,34 +290,45 @@ int main(void)
 
     app_set_initial_command();
 
-    printf("Motor control app starting (fast loop RT thread)...\n");
+    // Start UDP server for remote control
+    if (!UDPServer_init()) {
+        fprintf(stderr, "Failed to start UDP server\n");
+        // You can choose to abort or keep running without UDP:
+        // return 1;
+    }
 
-    // Enable the motor once you’re ready. For now, we turn it on here.
-    MotorControl_setEnable(true);
+    printf("Motor control app starting (fast loop RT thread + UDP)...\n");
 
-    // Start the fast loop thread (RT)
+    // You can start with motor disabled and let UDP 'enable' it,
+    // or enable immediately. I'll leave it disabled for safety:
+    MotorControl_setEnable(false);
+
+    // Start the fast loop RT thread
     pthread_t fast_thread;
     int err = pthread_create(&fast_thread, NULL, fast_loop_thread, NULL);
     if (err != 0) {
         fprintf(stderr,
                 "Failed to create fast loop thread: %s\n", strerror(err));
+        UDPServer_cleanup();
         return 1;
     }
 
-    // Main thread runs slow loop + any app-level logic
+    // Main thread runs slow loop + supervision
     while (1) {
         float now_s = get_time_s();
 
         SlowLoop_run(now_s);
 
-        // You might want to check jitter fault here and react at a higher level:
-        if (g_fast_jitter_fault) {
-            // Example: print once; you could also transition to FAULT state
-            // or blink an LED, send UDP, etc.
-            // (You might want a 'reported' flag to avoid spamming.)
+        // Check if UDP requested stop
+        if (UDPServer_wasStopRequested()) {
+            printf("Stop requested via UDP, shutting down...\n");
+            break;
         }
 
-        // Mild sleep; SlowLoop_run internally rate-limits
+        // Optional: react to jitter fault here (we already disable motor
+        // in MotorControl_setFault(MOTOR_FAULT_TIMING))
+        // if (g_fast_jitter_fault) { ... }
+
         struct timespec req = {
             .tv_sec  = 0,
             .tv_nsec = 1000000L  // 1 ms
@@ -324,5 +336,22 @@ int main(void)
         nanosleep(&req, NULL);
     }
 
+    // Graceful shutdown
+    UDPServer_cleanup();
+
+    // You may want a termination flag for fast_loop_thread instead of
+    // letting it run forever. For now, we just cancel/join:
+    pthread_cancel(fast_thread);
+    pthread_join(fast_thread, NULL);
+
+    // Ensure motor is off
+    MotorControl_setEnable(false);
+
+    // TODO: cleanup hardware if you add deinit functions
+    // PwmMotor_deinit(&g_pwm_motor);
+    // Hall_close(&g_hall);
+    // adc_close(g_adc_fd);
+
+    printf("Motor control app exited.\n");
     return 0;
 }

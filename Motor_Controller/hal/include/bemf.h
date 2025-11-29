@@ -1,7 +1,11 @@
+// bemf.h
 #pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
+
+// Forward-declare motor_config constants usage (BEMF_CH_* etc)
+// motor_config.h should be included in bemf.c, not necessarily here.
 
 /**
  * Back-EMF measurement handle.
@@ -15,7 +19,6 @@
  */
 typedef struct {
     int      adc_fd;
-
     uint8_t  ch_emf_u;
     uint8_t  ch_emf_v;
     uint8_t  ch_emf_w;
@@ -28,7 +31,7 @@ typedef struct {
 } BemfHandle_t;
 
 /**
- * @brief Initialize BEMF measurement handle.
+ * @brief Initialize BEMF measurement handle with explicit channels.
  *
  * Does not own adc_fd; you open/close ADC outside this module.
  */
@@ -38,6 +41,12 @@ bool Bemf_init(BemfHandle_t *h,
                uint8_t ch_emf_v,
                uint8_t ch_emf_w,
                uint8_t ch_vbus);
+
+/**
+ * @brief Initialize BEMF handle using default channel mapping
+ *        from motor_config.h (BEMF_CH_U/V/W/VBUS).
+ */
+bool Bemf_initDefault(BemfHandle_t *h, int adc_fd);
 
 /**
  * @brief Sample ADC channels and update phase + Vbus voltages.

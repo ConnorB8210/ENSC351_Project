@@ -85,3 +85,21 @@ void PwmMotor_applyPhaseState(PwmMotor_t *m,
  * @brief Drive all outputs low and release GPIO handle.
  */
 void PwmMotor_deinit(PwmMotor_t *m);
+
+/**
+ * @brief Convenience helper to drive all outputs low and disable.
+ */
+void PwmMotor_stop(PwmMotor_t *m);
+
+/**
+ * @brief 6-step commutation helper.
+ *
+ * @param m       Motor instance
+ * @param sector  0..5 electrical sector
+ * @param duty    normalized [0..1]
+ * @param forward true = forward, false = reverse
+ */
+void PwmMotor_setSixStep(PwmMotor_t *m,
+                         uint8_t sector,
+                         float duty,
+                         bool forward);

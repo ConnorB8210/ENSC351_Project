@@ -1,12 +1,17 @@
 // bemf.c
-
 #include "bemf.h"
-#include "adc.h"    // adc_read_channel()
-#include <stddef.h> // NULL
+#include "adc.h"           // adc_read_channel()
+#include "motor_config.h"  // ADC_REF_V, BEMF_CH_*, BEMF_VALID_MIN_V
+
+#include <stddef.h>        // NULL
 
 // -------- Config / scaling --------
 //
-// ADC: MCP3208, 12-bit, typically 3.3 V reference
+// ADC: MCP3208, 12-bit
+// motor_config.h:
+//   - ADC_REF_V is the *mid-rail* voltage (e.g., 1.65 V)
+//   - So full-scale is approximately 2 * ADC_REF_V (e.g., 3.3 V)
+//
 // DRV830x board: EMF and VPD outputs are attenuated by 5.1 / 73.1,
 // so to recover real bus/phase voltage you multiply by 73.1 / 5.1.
 //
@@ -15,8 +20,9 @@
 #define BEMF_ADC_MAX_COUNTS  4095.0f
 #endif
 
+// Use 2 * ADC_REF_V as the pin full-scale (0..3.3 V if ADC_REF_V=1.65)
 #ifndef BEMF_ADC_REF_V
-#define BEMF_ADC_REF_V       3.3f
+#define BEMF_ADC_REF_V       (ADC_REF_V * 2.0f)
 #endif
 
 #ifndef BEMF_EMF_ATTEN_RATIO
@@ -29,14 +35,16 @@
 #define BEMF_VBUS_ATTEN_RATIO (73.1f / 5.1f)
 #endif
 
-// Convert raw ADC counts -> pin voltage
+// Convert raw ADC counts -> pin voltage (at the ADC input)
 static inline float adc_counts_to_pin_v(int counts)
 {
-    if (counts < 0) return 0.0f;
-    return ( (float)counts * (BEMF_ADC_REF_V / BEMF_ADC_MAX_COUNTS) );
+    if (counts < 0) {
+        return 0.0f;
+    }
+    return ((float)counts * (BEMF_ADC_REF_V / BEMF_ADC_MAX_COUNTS));
 }
 
-// Convert raw ADC counts on EMF pin -> phase voltage in bus volts
+// Convert raw ADC counts on EMF pin -> phase voltage in *bus volts*
 static inline float adc_emf_to_phase_v(int counts)
 {
     float v_pin = adc_counts_to_pin_v(counts);
@@ -75,14 +83,27 @@ bool Bemf_init(BemfHandle_t *h,
     return true;
 }
 
+bool Bemf_initDefault(BemfHandle_t *h, int adc_fd)
+{
+    // Use default channel mapping from motor_config.h
+    return Bemf_init(h,
+                     adc_fd,
+                     BEMF_CH_U,
+                     BEMF_CH_V,
+                     BEMF_CH_W,
+                     BEMF_CH_VBUS);
+}
+
 void Bemf_update(BemfHandle_t *h)
 {
-    if (!h || h->adc_fd < 0) return;
+    if (!h || h->adc_fd < 0) {
+        return;
+    }
 
     // Read raw ADC channels
-    int raw_u = adc_read_channel(h->adc_fd, h->ch_emf_u);
-    int raw_v = adc_read_channel(h->adc_fd, h->ch_emf_v);
-    int raw_w = adc_read_channel(h->adc_fd, h->ch_emf_w);
+    int raw_u    = adc_read_channel(h->adc_fd, h->ch_emf_u);
+    int raw_v    = adc_read_channel(h->adc_fd, h->ch_emf_v);
+    int raw_w    = adc_read_channel(h->adc_fd, h->ch_emf_w);
     int raw_vbus = adc_read_channel(h->adc_fd, h->ch_vbus);
 
     // Convert to real voltages
@@ -90,11 +111,21 @@ void Bemf_update(BemfHandle_t *h)
     h->v_emf_v = adc_emf_to_phase_v(raw_v);
     h->v_emf_w = adc_emf_to_phase_v(raw_w);
     h->v_vbus  = adc_vpd_to_vbus(raw_vbus);
+
+    // Optionally: if bus is too low, BEMF readings are not meaningful.
+    // Use BEMF_VALID_MIN_V from motor_config.h as a guard.
+    if (h->v_vbus < BEMF_VALID_MIN_V) {
+        h->v_emf_u = 0.0f;
+        h->v_emf_v = 0.0f;
+        h->v_emf_w = 0.0f;
+    }
 }
 
 float Bemf_getPhaseVoltage(const BemfHandle_t *h, uint8_t phase)
 {
-    if (!h) return 0.0f;
+    if (!h) {
+        return 0.0f;
+    }
 
     switch (phase) {
         case 0: return h->v_emf_u;
@@ -106,13 +137,17 @@ float Bemf_getPhaseVoltage(const BemfHandle_t *h, uint8_t phase)
 
 float Bemf_getVbus(const BemfHandle_t *h)
 {
-    if (!h) return 0.0f;
+    if (!h) {
+        return 0.0f;
+    }
     return h->v_vbus;
 }
 
 float Bemf_getNeutralDiff(const BemfHandle_t *h, uint8_t phase)
 {
-    if (!h) return 0.0f;
+    if (!h) {
+        return 0.0f;
+    }
 
     float v_phase = Bemf_getPhaseVoltage(h, phase);
     float vbus    = h->v_vbus;
@@ -121,6 +156,7 @@ float Bemf_getNeutralDiff(const BemfHandle_t *h, uint8_t phase)
         return 0.0f;
     }
 
-    float v_neutral = 0.5f * vbus;  // assume star connection, neutral ~ Vbus/2
+    // For a star-connected motor, neutral is roughly Vbus/2 in 6-step
+    float v_neutral = 0.5f * vbus;
     return v_phase - v_neutral;
 }
