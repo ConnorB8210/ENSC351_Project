@@ -12,10 +12,8 @@ typedef struct
 {
     bool  enabled;           // handover logic active
     bool  done;              // true once we've switched to BEMF
-
     float min_rpm_mech;      // minimum mechanical RPM before we consider BEMF
     int   min_valid_samples; // how many consecutive valid samples required
-
     int   valid_count;       // running count of valid samples over threshold
 } SensorlessHandover_t;
 
@@ -40,16 +38,15 @@ void SensorlessHandover_setEnable(SensorlessHandover_t *h, bool enable);
 /**
  * @brief Step the handover logic.
  *
- * Call this from the fast loop while you're running in Hall mode.
+ * Call this from the *slow loop* AFTER SpeedMeas_update(), while
+ * you're still running in Hall mode.
  *
  * @param h              instance
  * @param now_s          current time in seconds (monotonic)
- * @param current_sector current commutation sector (0..5) from your Hall path
  * @param direction_fwd  true for forward, false for reverse
  *
  * @return true if the helper *just* completed the handover in this call.
  */
 bool SensorlessHandover_step(SensorlessHandover_t *h,
                              float now_s,
-                             uint8_t current_sector,
                              bool direction_fwd);

@@ -5,27 +5,33 @@
 #include "motor_states.h"
 #include "pwm_motor.h"
 
-/**
- * @brief Initialize motor control module.
- *
- * @param pwm Pointer to initialized PwmMotor_t instance.
- */
+// Initialize motor control with a pointer to the phase driver
 void MotorControl_init(PwmMotor_t *pwm);
 
-void MotorControl_setSpeedCmd(float rpm, bool direction);
-void MotorControl_setEnable(bool enable);
-
-MotorContext_t MotorControl_getContext(void);
-void MotorControl_onFault(void);
-
-/**
- * @brief Slow control loop (e.g. 1 kHz).
- */
-void MotorControl_stepSlow(void);
-
-/**
- * @brief Fast control loop (e.g. 10–20 kHz).
- */
+// Called from the fast loop (e.g. FAST_LOOP_HZ)
+// Handles commutation + duty application
 void MotorControl_stepFast(void);
 
+// Called from the slow loop (e.g. SPEED_LOOP_HZ)
+// Handles state machine, PI speed control, slew limiting, etc.
+void MotorControl_stepSlow(void);
+
+// Get a snapshot of the current context (state, commands, measurements)
+MotorContext_t MotorControl_getContext(void);
+
+// High-level API: enable/disable motor (state machine will respect this)
+void MotorControl_setEnable(bool en);
+
+// High-level API: set requested speed and direction.
+// rpm_cmd   : desired mechanical RPM (>=0)
+// direction : 0 = forward, 1 = reverse
+void MotorControl_setSpeedCmd(float rpm_cmd, bool direction);
+
+// Report a fault (overcurrent, timing, hall timeout, etc.)
+// This forces the state machine into MOTOR_STATE_FAULT and disables outputs.
 void MotorControl_setFault(MotorFault_t fault);
+
+// Feed measured bus voltage into the controller.
+// This stores v_bus into the measurement struct and automatically
+// trips OVERVOLT / UNDERVOLT faults based on motor_config.h limits.
+void MotorControl_updateBusVoltage(float vbus);

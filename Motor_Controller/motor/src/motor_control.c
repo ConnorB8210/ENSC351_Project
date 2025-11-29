@@ -2,12 +2,8 @@
 
 #include "motor_control.h"
 
-#include "motor_states.h"
-#include "pwm_motor.h"
-#include "position_estimator.h"
-#include "speed_measurement.h"
 #include "motor_config.h"
-
+#include "position_estimator.h"
 #include <string.h>   // memset
 #include <math.h>     // fabsf
 
@@ -31,11 +27,11 @@ static PwmMotor_t    *s_pwm = NULL;
 static float s_duty_cmd = 0.0f;
 
 // Slew / direction management
-static float s_rpm_cmd_target  = 0.0f;  // internal target for slew (current "ramp to" value)
-static float s_rpm_cmd_request = 0.0f;  // last requested rpm from API (user intent)
+static float s_rpm_cmd_target  = 0.0f;  // internal target for slew
+static float s_rpm_cmd_request = 0.0f;  // last requested rpm (user/API)
 
-static bool  s_dir_current   = false;   // actual direction used for commutation (0=fwd,1=rev)
-static bool  s_dir_requested = false;   // direction requested by API
+static bool  s_dir_current   = false;   // actual direction (0=fwd,1=rev)
+static bool  s_dir_requested = false;   // requested direction
 
 // ---------------- Simple speed PI controller ----------------
 
@@ -49,11 +45,11 @@ typedef struct {
 
 static SpeedPI_t s_speed_pi;
 
-// Reasonable defaults; move to motor_config_runtime if you like
+// Reasonable defaults
 #define SPEED_PI_KP_DEFAULT        0.0015f
 #define SPEED_PI_KI_DEFAULT        0.0005f
-#define SPEED_PI_OUT_MIN_DEFAULT   0.0f     // min duty
-#define SPEED_PI_OUT_MAX_DEFAULT   1.0f     // max duty
+#define SPEED_PI_OUT_MIN_DEFAULT   0.0f
+#define SPEED_PI_OUT_MAX_DEFAULT   1.0f
 
 static void SpeedPI_init(SpeedPI_t *pi)
 {
@@ -84,7 +80,6 @@ static float SpeedPI_step(SpeedPI_t *pi, float error)
 // ---------------- Slew‑rate & direction logic ----------------
 
 // Update s_rpm_cmd_target and direction based on requested values and actual speed.
-// This is where we do safe direction reversal.
 static void update_target_and_direction(void)
 {
     float rpm_abs = fabsf(s_ctx.meas.rpm_mech);
@@ -94,7 +89,7 @@ static void update_target_and_direction(void)
         if (rpm_abs <= MOTOR_RPM_REV_THRESHOLD) {
             // Slow enough: flip direction now
             s_dir_current       = s_dir_requested;
-            s_ctx.cmd.direction = s_dir_current;     // 0=fwd,1=rev as per struct
+            s_ctx.cmd.direction = s_dir_current;     // 0=fwd,1=rev
             s_rpm_cmd_target    = s_rpm_cmd_request;
         } else {
             // Too fast to reverse: brake toward zero (target = 0)
@@ -114,7 +109,6 @@ static void update_target_and_direction(void)
 static void update_speed_slew(void)
 {
     // Per-step max change in RPM, based on configured slow loop rate
-    // SPEED_LOOP_HZ comes from motor_config.h
     float max_step = MOTOR_RPM_SLEW_RATE / (float)SPEED_LOOP_HZ;
 
     float diff = s_rpm_cmd_target - s_ctx.cmd.rpm_cmd;
@@ -186,11 +180,10 @@ void MotorControl_setSpeedCmd(float rpm_cmd, bool direction)
     s_dir_requested   = direction;   // 0=fwd,1=rev
 }
 
-// Called from jitter monitor / DRV faults / Hall timeout, etc.
 void MotorControl_setFault(MotorFault_t fault)
 {
     if (s_ctx.state == MOTOR_STATE_FAULT) {
-        // Already in fault; overwrite with last cause (or keep original if you prefer)
+        // Already in fault; overwrite or keep first cause as you prefer
         s_ctx.fault = fault;
         return;
     }
@@ -210,19 +203,39 @@ void MotorControl_setFault(MotorFault_t fault)
     }
 }
 
+void MotorControl_updateBusVoltage(float vbus)
+{
+    // Store in measurement struct
+    s_ctx.meas.v_bus = vbus;
+
+    // If we're already in FAULT, don't spam more faults
+    if (s_ctx.state == MOTOR_STATE_FAULT) {
+        return;
+    }
+
+    // Simple OV / UV checking
+    if (vbus > MOTOR_BUS_V_MAX_V) {
+        MotorControl_setFault(MOTOR_FAULT_OVERVOLT);
+    } else if (vbus < MOTOR_BUS_V_MIN_V && vbus > 0.1f) {
+        // small >0 to ignore noise when bus is basically off
+        MotorControl_setFault(MOTOR_FAULT_UNDERVOLT);
+    }
+}
+
 // ---------------- Internal helpers ----------------
 
 static void update_measurements(void)
 {
-    // Use Position Estimator for RPM; you can also mix SpeedMeas if you prefer
+    // Use Position Estimator for RPM; it already pulls from SpeedMeasurement
     PosEst_t pe = PosEst_get();
 
     s_ctx.meas.rpm_mech = pe.mech_speed;
     s_ctx.meas.rpm_elec = pe.elec_speed;
 
-    // TODO: wire actual bus current/phase currents/Vbus if you have them
-    // For now we leave them as whatever other modules fill in.
+    // TODO: wire actual bus current/phase currents if you have them
 }
+
+// State handlers
 
 static void handle_idle_state(void)
 {
@@ -241,10 +254,7 @@ static void handle_idle_state(void)
 
 static void handle_align_state(void)
 {
-    // Placeholder for alignment logic (hold specific sector/angle, etc.)
-    // When done aligning:
-    //   s_ctx.state = MOTOR_STATE_RUN;
-
+    // Placeholder for alignment logic
     s_duty_cmd = 0.0f;
     if (s_pwm) {
         PwmMotor_stop(s_pwm);
@@ -256,7 +266,7 @@ static void handle_align_state(void)
 
 static void handle_run_state(float dt_s)
 {
-    (void)dt_s; // currently unused; you can use it for PI scheduling if needed
+    (void)dt_s; // currently unused; reserved for future
 
     float rpm_abs = fabsf(s_ctx.meas.rpm_mech);
 
@@ -349,7 +359,7 @@ void MotorControl_stepSlow(void)
 
 void MotorControl_stepFast(void)
 {
-    // NOTE: This is called from fast loop (e.g. CONTROL_LOOP_HZ or fast_loop_hz)
+    // NOTE: This is called from fast loop (e.g. FAST_LOOP_HZ)
 
     // If not in RUN or enable is false or we’re in FAULT: outputs off
     if (s_ctx.state != MOTOR_STATE_RUN ||
