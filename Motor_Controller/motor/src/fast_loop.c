@@ -9,63 +9,45 @@
 #include "sensorless_handover.h"
 #include "motor_states.h"
 
-#include <math.h>
+extern BemfHandle_t         g_bemf;
+extern SensorlessHandover_t g_handover;
 
-// These are defined in main.c (or another hw-init file)
-extern BemfHandle_t          g_bemf;
-extern SensorlessHandover_t  g_handover;
-
-// Fast loop period (seconds) and last execution time
 static float s_fast_period_s = 0.00005f;  // default 20 kHz
-static float s_last_run_s    = 0.0f;
 
 void FastLoop_init(float period_s)
 {
     if (period_s > 0.0f) {
         s_fast_period_s = period_s;
     }
-    s_last_run_s = 0.0f;
 }
 
-void FastLoop_run(float now_s)
+void FastLoop_step(float now_s)
 {
-    // Simple periodic scheduling
-    if (s_last_run_s == 0.0f) {
-        s_last_run_s = now_s;
-    }
-
-    if ((now_s - s_last_run_s) < s_fast_period_s) {
-        return; // not time yet
-    }
-
-    s_last_run_s += s_fast_period_s;  // keep consistent period
-
-    // -------- Fast loop tasks --------
+    (void)s_fast_period_s; // kept if you want it later, but not needed here
 
     // 1) Update BEMF ADC readings
     Bemf_update(&g_bemf);
 
-    // 2) Update speed estimation (Hall or BEMF, depending on SpeedMeas mode)
+    // 2) Update speed estimation (Hall or BEMF, depending on mode)
     SpeedMeas_update(now_s);
 
-    // 3) Update position estimator (angle + sector)
+    // 3) Update position estimator
     PosEst_update();
 
-    // 4) Optional: Hall->BEMF handover logic while in RUN
+    // 4) Optional: Hall->BEMF handover (only meaningful in RUN)
     MotorContext_t ctx = MotorControl_getContext();
-
     if (ctx.state == MOTOR_STATE_RUN) {
         PosEst_t pe = PosEst_get();
 
-        uint8_t current_sector = pe.sector;      // 0..5
-        bool direction_fwd     = (ctx.cmd.direction == 0);  // 0 = fwd in your struct
+        uint8_t current_sector = pe.sector;           // 0..5
+        bool    direction_fwd  = (ctx.cmd.direction == 0); // 0=fwd in your struct
 
-        (void)SensorlessHandover_step(&g_handover,
-                                      now_s,
-                                      current_sector,
-                                      direction_fwd);
+        SensorlessHandover_step(&g_handover,
+                                now_s,
+                                current_sector,
+                                direction_fwd);
     }
 
-    // 5) Finally run the high-rate motor control (commutation, PI, PWM)
+    // 5) High-rate motor control (commutation, PI, PWM)
     MotorControl_stepFast();
 }

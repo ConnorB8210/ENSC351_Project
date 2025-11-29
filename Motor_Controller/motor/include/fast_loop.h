@@ -1,18 +1,12 @@
-// fast_loop.h
+/// fast_loop.h
 #pragma once
 
-#include <stdbool.h>
-
-/**
- * @brief Initialize fast loop timing.
- *
- * @param period_s  desired fast loop period in seconds (e.g. 0.00005f for 20 kHz)
- */
 void FastLoop_init(float period_s);
 
 /**
- * @brief Run fast loop tasks if it's time.
+ * @brief One iteration of the fast loop.
  *
- * Call this frequently from main() with a monotonic timestamp in seconds.
+ * Must be called periodically at the configured rate
+ * (e.g. 20 kHz) from a real-time thread.
  */
-void FastLoop_run(float now_s);
+void FastLoop_step(float now_s);

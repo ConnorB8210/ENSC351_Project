@@ -1,5 +1,18 @@
+// motor_states.h
 #pragma once
 #include <stdbool.h>
+#include <stdint.h>
+#include "motor_config.h"
+
+typedef enum {
+    MOTOR_FAULT_NONE = 0,
+    MOTOR_FAULT_OVERCURRENT,
+    MOTOR_FAULT_OVERVOLT,
+    MOTOR_FAULT_UNDERVOLT,
+    MOTOR_FAULT_HALL_TIMEOUT,
+    MOTOR_FAULT_DRV8302,
+    MOTOR_FAULT_TIMING     // <-- NEW: fast-loop/jitter/timing fault
+} MotorFault_t;
 
 typedef enum {
     MOTOR_STATE_IDLE = 0,
@@ -22,32 +35,12 @@ typedef struct {
     float rpm_cmd;
     float torque_cmd;
     bool  enable;
-    bool  direction;   // 0=fwd,1=rev
+    bool  direction;   // 0=fwd, 1=rev
 } MotorCommand_t;
 
 typedef struct {
     MotorState_t        state;
+    MotorFault_t        fault;   // <-- make sure this exists
     MotorMeasurements_t meas;
     MotorCommand_t      cmd;
 } MotorContext_t;
-
-
-// ------------ API ------------
-void MotorStates_init(void);
-
-MotorContext_t MotorStates_get(void);
-MotorContext_t *MotorStates_ptr(void);
-
-void MotorStates_setCommand(const MotorCommand_t *cmd);
-void MotorStates_setEnable(bool en);
-void MotorStates_setDirection(bool dir);
-void MotorStates_setSpeedCmd(float rpm);
-void MotorStates_setTorqueCmd(float tq);
-
-void MotorStates_setMeasurements(const MotorMeasurements_t *meas);
-void MotorStates_updateElectricalSpeed(float rpm_elec);
-void MotorStates_updateMechanicalSpeed(float rpm_mech);
-void MotorStates_updateVbus(float v);
-void MotorStates_updateCurrents(float iu, float iv, float iw, float ibus);
-
-void MotorStates_setState(MotorState_t new_state);

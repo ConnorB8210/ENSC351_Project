@@ -27,3 +27,5 @@ void MotorControl_stepSlow(void);
  * @brief Fast control loop (e.g. 10–20 kHz).
  */
 void MotorControl_stepFast(void);
+
+void MotorControl_setFault(MotorFault_t fault);

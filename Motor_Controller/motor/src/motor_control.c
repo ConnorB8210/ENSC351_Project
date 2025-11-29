@@ -1,257 +1,300 @@
 // motor_control.c
-//
-// High-level motor control:
-//  - Manages MotorState_t (IDLE/RUN/FAULT)
-//  - Runs speed PI loop
-//  - Uses position_estimator / speed_measure for feedback
-//  - Calls pwm_motor to apply 6-step commutation based on sector + direction
-
 #include "motor_control.h"
 
 #include "motor_states.h"
+#include "pwm_motor.h"
 #include "position_estimator.h"
 #include "speed_measurement.h"
-#include "hall_commutator.h"
-#include "pi_controller.h"
-#include "filters.h"
 #include "motor_config.h"
-#include "pwm_motor.h"
 
+#include <string.h>  // memset
 #include <math.h>
-#include <string.h>
 
-// -----------------------------
-// Config defaults
-// -----------------------------
+// ---------------- Static context & handles ----------------
 
-#ifndef SPEED_LOOP_HZ
-#define SPEED_LOOP_HZ        1000.0f   // 1 kHz speed loop
-#endif
+static MotorContext_t s_ctx;
+static PwmMotor_t    *s_pwm = NULL;
 
-#ifndef SPEED_PI_KP
-#define SPEED_PI_KP          0.05f
-#endif
+// Current duty command (0..1) that fast loop will apply
+static float s_duty_cmd = 0.0f;
 
-#ifndef SPEED_PI_KI
-#define SPEED_PI_KI          5.0f
-#endif
+// ---------------- Simple speed PI controller ----------------
 
-#ifndef MAX_TORQUE_CMD
-#define MAX_TORQUE_CMD       1.0f      // normalized torque command [-1..1]
-#endif
+typedef struct {
+    float kp;
+    float ki;
+    float integrator;
+    float out_min;
+    float out_max;
+} SpeedPI_t;
 
-#ifndef MAX_DUTY
-#define MAX_DUTY             0.95f     // guard-band for PWM
-#endif
+static SpeedPI_t s_speed_pi;
 
-// -----------------------------
-// Internal state
-// -----------------------------
+// Reasonable defaults; move to motor_config_runtime if you like
+#define SPEED_PI_KP_DEFAULT        0.0015f
+#define SPEED_PI_KI_DEFAULT        0.0005f
+#define SPEED_PI_OUT_MIN_DEFAULT   0.0f     // min duty
+#define SPEED_PI_OUT_MAX_DEFAULT   1.0f     // max duty
 
-static PI_Controller_t s_speed_pi;
-static PosMode_t       s_pos_mode = POS_MODE_HALL;
-static PwmMotor_t     *s_pwm      = NULL;
+static void SpeedPI_init(SpeedPI_t *pi)
+{
+    memset(pi, 0, sizeof(*pi));
+    pi->kp      = SPEED_PI_KP_DEFAULT;
+    pi->ki      = SPEED_PI_KI_DEFAULT;
+    pi->out_min = SPEED_PI_OUT_MIN_DEFAULT;
+    pi->out_max = SPEED_PI_OUT_MAX_DEFAULT;
+}
 
-// Forward declaration
-static void MotorControl_applyCommutation(uint8_t sector,
-                                          float duty,
-                                          bool direction);
+static float SpeedPI_step(SpeedPI_t *pi, float error)
+{
+    // Integrate
+    pi->integrator += pi->ki * error;
 
-// -----------------------------
-// Public API
-// -----------------------------
+    // Anti-windup: clamp integrator
+    if (pi->integrator > pi->out_max) pi->integrator = pi->out_max;
+    if (pi->integrator < pi->out_min) pi->integrator = pi->out_min;
+
+    float out = pi->kp * error + pi->integrator;
+
+    if (out > pi->out_max) out = pi->out_max;
+    if (out < pi->out_min) out = pi->out_min;
+
+    return out;
+}
+
+// ---------------- Public API ----------------
 
 void MotorControl_init(PwmMotor_t *pwm)
 {
     s_pwm = pwm;
 
-    // Init shared context
-    MotorStates_init();
+    memset(&s_ctx, 0, sizeof(s_ctx));
+    s_ctx.state = MOTOR_STATE_IDLE;
+    s_ctx.fault = MOTOR_FAULT_NONE;
 
-    // Position / speed path
-    s_pos_mode = POS_MODE_HALL;
-    PosEst_init(s_pos_mode);
-    SpeedMeas_init();
+    s_ctx.cmd.enable     = false;
+    s_ctx.cmd.direction  = false;   // default forward
+    s_ctx.cmd.rpm_cmd    = 0.0f;
+    s_ctx.cmd.torque_cmd = 0.0f;
 
-    // Speed PI
-    float Ts_speed = 1.0f / SPEED_LOOP_HZ;
-    PI_init(&s_speed_pi,
-            SPEED_PI_KP,
-            SPEED_PI_KI,
-            Ts_speed,
-            -MAX_TORQUE_CMD,
-            +MAX_TORQUE_CMD);
-    PI_reset(&s_speed_pi);
+    s_duty_cmd = 0.0f;
 
-    // Start safe
-    MotorStates_setState(MOTOR_STATE_IDLE);
-    MotorStates_setEnable(false);
-    MotorStates_setTorqueCmd(0.0f);
+    SpeedPI_init(&s_speed_pi);
 
-    // Outputs off
     if (s_pwm) {
-        PwmMotor_setEnable(s_pwm, false);
-        PwmMotor_applyPhaseState(s_pwm, 0, 0, 0, 0.0f);
-    }
-}
-
-void MotorControl_setSpeedCmd(float rpm, bool direction)
-{
-    MotorStates_setSpeedCmd(rpm);
-    MotorStates_setDirection(direction);
-}
-
-void MotorControl_setEnable(bool enable)
-{
-    MotorStates_setEnable(enable);
-
-    MotorContext_t ctx = MotorStates_get();
-
-    if (!enable) {
-        MotorStates_setState(MOTOR_STATE_IDLE);
-        MotorStates_setTorqueCmd(0.0f);
-        PI_reset(&s_speed_pi);
-
-        if (s_pwm) {
-            PwmMotor_setEnable(s_pwm, false);
-            PwmMotor_applyPhaseState(s_pwm, 0, 0, 0, 0.0f);
-        }
-    } else {
-        if (ctx.state != MOTOR_STATE_FAULT) {
-            MotorStates_setState(MOTOR_STATE_RUN);
-        }
-        if (s_pwm) {
-            PwmMotor_setEnable(s_pwm, true);
-        }
+        PwmMotor_stop(s_pwm);       // ensure outputs off
     }
 }
 
 MotorContext_t MotorControl_getContext(void)
 {
-    return MotorStates_get();
+    return s_ctx;
 }
 
-void MotorControl_onFault(void)
+void MotorControl_setEnable(bool en)
 {
-    // Latch fault and shut down torque/output
-    MotorStates_setState(MOTOR_STATE_FAULT);
-    MotorStates_setEnable(false);
-    MotorStates_setTorqueCmd(0.0f);
-    PI_reset(&s_speed_pi);
+    // If we’re in FAULT, ignore attempts to re-enable
+    if (s_ctx.state == MOTOR_STATE_FAULT && en) {
+        return;
+    }
+    s_ctx.cmd.enable = en;
+}
+
+void MotorControl_setSpeedCmd(float rpm_cmd, bool direction)
+{
+    // Clamp speed to configured maximum
+    if (rpm_cmd > MOTOR_RPM_MAX)  rpm_cmd = MOTOR_RPM_MAX;
+    if (rpm_cmd < 0.0f)           rpm_cmd = 0.0f;
+
+    s_ctx.cmd.rpm_cmd   = rpm_cmd;
+    s_ctx.cmd.direction = direction;
+}
+
+// Called from jitter monitor / DRV faults / Hall timeout, etc.
+void MotorControl_setFault(MotorFault_t fault)
+{
+    if (s_ctx.state == MOTOR_STATE_FAULT) {
+        // Already in fault; keep the first cause or overwrite, your call.
+        // Here we overwrite so the most recent cause is visible.
+        s_ctx.fault = fault;
+        return;
+    }
+
+    s_ctx.fault = fault;
+    s_ctx.state = MOTOR_STATE_FAULT;
+
+    // Immediately shut everything down
+    s_ctx.cmd.enable = false;
+    s_duty_cmd       = 0.0f;
 
     if (s_pwm) {
-        PwmMotor_setEnable(s_pwm, false);
-        PwmMotor_applyPhaseState(s_pwm, 0, 0, 0, 0.0f);
+        PwmMotor_stop(s_pwm);
     }
 }
 
-// -----------------------------
-// Slow loop (e.g. 1 kHz)
-// -----------------------------
+// ---------------- Internal helpers ----------------
+
+static void update_measurements(void)
+{
+    // Use Position Estimator for RPM; you can also mix SpeedMeas if you prefer
+    PosEst_t pe = PosEst_get();
+
+    s_ctx.meas.rpm_mech = pe.mech_speed;
+    s_ctx.meas.rpm_elec = pe.elec_speed;
+
+    // TODO: wire actual bus current/phase currents/Vbus if you have them
+    // For now just leave them as-is.
+}
+
+static void handle_idle_state(void)
+{
+    // In IDLE, keep outputs off
+    s_duty_cmd = 0.0f;
+    if (s_pwm) {
+        PwmMotor_stop(s_pwm);
+    }
+
+    // Transition out of IDLE when enable is asserted and rpm_cmd > 0
+    if (s_ctx.cmd.enable && s_ctx.cmd.rpm_cmd > 0.0f) {
+        // For now, skip ALIGN and go straight to RUN.
+        // You can add a proper ALIGN state later.
+        s_ctx.state = MOTOR_STATE_RUN;
+    }
+}
+
+static void handle_align_state(void)
+{
+    // Placeholder for alignment logic (hold specific sector/angle, etc.)
+    // When done aligning:
+    //   s_ctx.state = MOTOR_STATE_RUN;
+    // For now, just treat ALIGN like IDLE or quickly transition to RUN.
+
+    s_duty_cmd = 0.0f;
+    if (s_pwm) {
+        PwmMotor_stop(s_pwm);
+    }
+
+    // Example: auto-complete alignment
+    s_ctx.state = MOTOR_STATE_RUN;
+}
+
+static void handle_run_state(float dt_s)
+{
+    (void)dt_s; // currently unused; you can use it for PI scheduling if needed
+
+    // If the user disabled the motor or commanded 0 rpm, go back to IDLE
+    if (!s_ctx.cmd.enable || s_ctx.cmd.rpm_cmd <= 0.0f) {
+        s_ctx.state = MOTOR_STATE_IDLE;
+        s_duty_cmd  = 0.0f;
+        if (s_pwm) {
+            PwmMotor_stop(s_pwm);
+        }
+        return;
+    }
+
+    // Speed PI: error = cmd - measured
+    float error_rpm = s_ctx.cmd.rpm_cmd - s_ctx.meas.rpm_mech;
+    float duty = SpeedPI_step(&s_speed_pi, error_rpm);
+
+    // This is also our "torque command" for now (0..1)
+    s_ctx.cmd.torque_cmd = duty;
+    s_duty_cmd           = duty;
+}
+
+static void handle_fault_state(void)
+{
+    // Stay in FAULT until a reset function is added
+    s_ctx.cmd.enable = false;
+    s_duty_cmd       = 0.0f;
+
+    if (s_pwm) {
+        PwmMotor_stop(s_pwm);
+    }
+}
+
+// ---------------- Slow loop ----------------
+
 void MotorControl_stepSlow(void)
 {
-    MotorContext_t ctx = MotorStates_get();
-    PosEst_t       est = PosEst_get();
+    // NOTE: This is called from slow loop (e.g. 1 kHz)
 
-    if (ctx.state == MOTOR_STATE_FAULT) {
-        MotorStates_setTorqueCmd(0.0f);
-        return;
+    static float s_last_time_s = 0.0f;
+    float now_s = 0.0f; // we don't have time here; if you want dt, pass now_s in
+
+    float dt_s = 0.0f;
+    if (s_last_time_s > 0.0f) {
+        dt_s = now_s - s_last_time_s;
+        if (dt_s < 0.0f) dt_s = 0.0f;
     }
+    s_last_time_s = now_s;
 
-    if (!ctx.cmd.enable) {
-        MotorStates_setState(MOTOR_STATE_IDLE);
-        MotorStates_setTorqueCmd(0.0f);
-        PI_reset(&s_speed_pi);
-        return;
-    }
+    // Update measurements (speed, etc.)
+    update_measurements();
 
-    if (ctx.state == MOTOR_STATE_IDLE) {
-        MotorStates_setState(MOTOR_STATE_RUN);
-    }
+    // State machine
+    switch (s_ctx.state) {
+    case MOTOR_STATE_IDLE:
+        handle_idle_state();
+        break;
 
-    if (ctx.state == MOTOR_STATE_RUN) {
-        float rpm_ref  = ctx.cmd.rpm_cmd;
-        float rpm_meas = est.mech_speed;   // from speed estimator
+    case MOTOR_STATE_ALIGN:
+        handle_align_state();
+        break;
 
-        PI_Status_t status;
-        float torque_cmd = PI_step(&s_speed_pi,
-                                   rpm_ref,
-                                   rpm_meas,
-                                   true,      // anti-windup
-                                   &status);
+    case MOTOR_STATE_RUN:
+        handle_run_state(dt_s);
+        break;
 
-        torque_cmd = clampf(torque_cmd, -MAX_TORQUE_CMD, +MAX_TORQUE_CMD);
-        MotorStates_setTorqueCmd(torque_cmd);
-
-        (void)status; // optional: inspect saturation
+    case MOTOR_STATE_FAULT:
+    default:
+        handle_fault_state();
+        break;
     }
 }
 
-// -----------------------------
-// Fast loop (e.g. 10–20 kHz)
-// -----------------------------
+// ---------------- Fast loop ----------------
+
 void MotorControl_stepFast(void)
 {
-    MotorContext_t ctx = MotorStates_get();
+    // NOTE: This is called from fast loop (e.g. 20 kHz)
 
-    // Update estimator
-    PosEst_update();
-    PosEst_t est = PosEst_get();
+    // If not in RUN or enable is false or we’re in FAULT: outputs off
+    if (s_ctx.state != MOTOR_STATE_RUN ||
+        !s_ctx.cmd.enable ||
+        s_ctx.fault != MOTOR_FAULT_NONE) {
 
-    if (!s_pwm) {
-        return; // no PWM backend configured
-    }
-
-    if (ctx.state != MOTOR_STATE_RUN || !ctx.cmd.enable) {
-        MotorControl_applyCommutation(0, 0.0f, false);
+        s_duty_cmd = 0.0f;
+        if (s_pwm) {
+            PwmMotor_stop(s_pwm);
+        }
         return;
     }
 
-    if (!est.valid) {
-        // No valid sector yet → keep outputs off (or do open-loop startup later)
-        MotorControl_applyCommutation(0, 0.0f, ctx.cmd.direction);
-        return;
-    }
+    // Get latest position estimate
+    PosEst_t pe = PosEst_get();
 
-    uint8_t sector = est.sector;
+    // Sector is 0..5 for 6-step
+    uint8_t sector = pe.sector;
     if (sector >= 6) {
-        MotorControl_applyCommutation(0, 0.0f, ctx.cmd.direction);
+        // Invalid sector -> fault or just turn off for safety
+        MotorControl_setFault(MOTOR_FAULT_TIMING); // or define a separate fault
         return;
     }
 
-    float tq   = ctx.cmd.torque_cmd;
-    float duty = fabsf(tq);
+    // Use torque_cmd (0..1) as duty
+    float duty = s_ctx.cmd.torque_cmd;
+    if (duty < 0.0f) duty = 0.0f;
+    if (duty > 1.0f) duty = 1.0f;
 
-    duty = clampf(duty, 0.0f, MAX_DUTY);
+    // Direction: 0 = forward, 1 = reverse
+    bool dir_fwd = (s_ctx.cmd.direction == 0);
 
-    bool direction = ctx.cmd.direction;
-
-    // Optional: let torque sign flip direction instead:
-    // if (tq < 0.0f) {
-    //     direction = !direction;
-    // }
-
-    MotorControl_applyCommutation(sector, duty, direction);
-}
-
-// -----------------------------
-// Local helper: sector -> phase state -> PWM
-// -----------------------------
-static void MotorControl_applyCommutation(uint8_t sector,
-                                          float duty,
-                                          bool direction)
-{
-    if (!s_pwm) return;
-
-    int u, v, w;
-
-    HallComm_getPhaseState(sector, &u, &v, &w);
-
-    if (direction) {
-        u = -u;
-        v = -v;
-        w = -w;
+    if (s_pwm) {
+        // This is the API we defined in the refactored pwm_motor module:
+        //   void PwmMotor_setSixStep(PwmMotor_t *m,
+        //                            uint8_t sector,
+        //                            float duty,
+        //                            bool forward);
+        PwmMotor_setSixStep(s_pwm, sector, duty, dir_fwd);
     }
-
-    PwmMotor_applyPhaseState(s_pwm, u, v, w, duty);
 }
