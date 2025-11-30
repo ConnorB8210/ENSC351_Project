@@ -2,14 +2,15 @@ cmake_minimum_required(VERSION 3.18)
 project(algorithms C)
 
 add_library(algorithms STATIC
-    bemf_sector.c
-    pi_controller.c
-    filters.c
+    src/bemf_sector.c
+       /filters.c
+       /pi_controller.c
 )
 
 target_include_directories(algorithms
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_SOURCE_DIR}/config
 )
 

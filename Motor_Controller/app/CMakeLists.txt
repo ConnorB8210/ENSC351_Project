@@ -1,25 +1,30 @@
 cmake_minimum_required(VERSION 3.18)
-
 project(Motor_Controller_app C)
 
-# --- Executable --- 
+# --- Executable ---
 add_executable(Motor_Controller
     src/main.c
     src/status_display.c
     src/udp_server.c
 )
 
-# --- Include directories for app and HAL ---
+# --- Include directories for app and libs ---
 target_include_directories(Motor_Controller PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/include      # app headers
+    ${CMAKE_CURRENT_SOURCE_DIR}/include      # app headers: app/include
     ${CMAKE_SOURCE_DIR}/hal/include          # HAL headers
-    ${LIBGPIOD_INCLUDE_DIRS}                 # libgpiod from sysroot
+    ${CMAKE_SOURCE_DIR}/config               # motor_config.h, runtime .h
+    ${CMAKE_SOURCE_DIR}/motor/include        # motor_control.h etc. (if present)
+    ${CMAKE_SOURCE_DIR}/algorithms/include   # bemf_sector.h etc. (if present)
 )
 
-# --- Link against HAL library and libgpiod ---
+# --- Link against HAL + other libs ---
 target_link_libraries(Motor_Controller PRIVATE
     hal
+    motor
+    algorithms
+    config
     ${LIBGPIOD_LIBRARIES}
+    pthread
 )
 
 # --- Compiler warnings / sanitizers ---

@@ -201,20 +201,29 @@ Motor_Controller_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 Motor_Controller_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller
 
-//Value Computed by CMake
-Motor_Controller_app_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app
-
-//Value Computed by CMake
-Motor_Controller_app_IS_TOP_LEVEL:STATIC=OFF
-
-//Value Computed by CMake
-Motor_Controller_app_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/app
-
 //Arguments to supply to pkg-config
 PKG_CONFIG_ARGN:STRING=
 
 //pkg-config executable
 PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
+
+//Value Computed by CMake
+algorithms_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/algorithms
+
+//Value Computed by CMake
+algorithms_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+algorithms_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/algorithms
+
+//Value Computed by CMake
+config_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/config
+
+//Value Computed by CMake
+config_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+config_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/config
 
 //Value Computed by CMake
 hal_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/hal
@@ -224,6 +233,15 @@ hal_IS_TOP_LEVEL:STATIC=OFF
 
 //Value Computed by CMake
 hal_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal
+
+//Value Computed by CMake
+motor_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/motor
+
+//Value Computed by CMake
+motor_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+motor_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor
 
 //Path to a library.
 pkgcfg_lib_LIBGPIOD_gpiod:FILEPATH=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu/libgpiod.so
@@ -313,7 +331,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_NM
 CMAKE_NM-ADVANCED:INTERNAL=1
 //number of local generators
-CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=3
+CMAKE_NUMBER_OF_MAKEFILES:INTERNAL=5
 //ADVANCED property for variable: CMAKE_OBJCOPY
 CMAKE_OBJCOPY-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_OBJDUMP

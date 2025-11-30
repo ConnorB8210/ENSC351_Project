@@ -1,1 +1,0 @@
-/usr/bin/aarch64-linux-gnu-gcc --sysroot=/home/connor/bbb-sysroot -fsanitize=address -pthread -Wl,--dependency-file=CMakeFiles/Motor_Controller.dir/link.d CMakeFiles/Motor_Controller.dir/src/main.c.o CMakeFiles/Motor_Controller.dir/src/status_display.c.o CMakeFiles/Motor_Controller.dir/src/udp_server.c.o -o Motor_Controller  ../hal/libhal.a -lgpiod -lpthread -lm

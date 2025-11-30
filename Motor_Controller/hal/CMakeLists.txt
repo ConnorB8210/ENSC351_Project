@@ -1,42 +1,51 @@
 cmake_minimum_required(VERSION 3.18)
-project(hal C)
+project(Motor_Controller C)
 
-add_library(hal STATIC
-    src/adc.c
-    src/bemf.c
-    src/gpio.c
-    src/drv8302.c
-    src/timer.c
-    src/hall.c
-    src/pwm.c
-    src/pwm_motor.c
+set(CMAKE_C_STANDARD 11)
+
+# --- Subdirectories ---
+add_subdirectory(config)
+add_subdirectory(hal)
+add_subdirectory(algorithms)
+add_subdirectory(motor)
+
+# --- Executable ---
+add_executable(Motor_Controller
+    app/src/main.c
+    app/src/status_display.c
+    app/src/udp_server.c
 )
 
-# --- libgpiod via pkg-config ---
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBGPIOD REQUIRED libgpiod)
-
-# --- Math library (for sqrt, pow, etc.) ---
-find_library(M_LIB m REQUIRED)
-
-# --- Include directories ---
-target_include_directories(hal
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include      # hal headers
-        ${CMAKE_SOURCE_DIR}/config               # motor_config.h used by bemf.c
-        ${LIBGPIOD_INCLUDE_DIRS}
+# --- Include dirs for the app ---
+target_include_directories(Motor_Controller PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/app/include   # app headers
+    ${CMAKE_SOURCE_DIR}/hal/include          # HAL headers
+    ${CMAKE_SOURCE_DIR}/config               # motor_config.h, runtime .h
+    ${CMAKE_SOURCE_DIR}/motor/include        # motor_control.h, etc (if you have this)
+    ${CMAKE_SOURCE_DIR}/algorithms/include   # bemf_sector.h, etc (if you have this)
 )
 
-# --- Link against libgpiod + pthread + libm ---
-target_link_libraries(hal
-    PUBLIC
-        ${LIBGPIOD_LIBRARIES}
-        pthread
-        ${M_LIB}
+# --- Link against libs ---
+target_link_libraries(Motor_Controller PRIVATE
+    hal
+    motor
+    algorithms
+    config
+    pthread
 )
 
-# --- Diagnostics ---
-message(STATUS "Using libgpiod version: ${LIBGPIOD_VERSION}")
-message(STATUS "libgpiod include dirs: ${LIBGPIOD_INCLUDE_DIRS}")
-message(STATUS "libgpiod libraries: ${LIBGPIOD_LIBRARIES}")
-message(STATUS "Math library: ${M_LIB}")
+# --- Compiler warnings / sanitizers ---
+target_compile_options(Motor_Controller PRIVATE
+    -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread
+)
+target_link_options(Motor_Controller PRIVATE
+    -fsanitize=address -pthread
+)
+
+# --- Copy executable to NFS ---
+add_custom_command(TARGET Motor_Controller POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:Motor_Controller>
+        /home/connor/ENSC351/public/
+    COMMENT "Copying Motor_Controller executable to NFS directory"
+)
