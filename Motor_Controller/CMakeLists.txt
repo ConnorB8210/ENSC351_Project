@@ -1,37 +1,51 @@
 cmake_minimum_required(VERSION 3.18)
-
 project(Motor_Controller C)
 
 set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
 
-# --- Toolchain auto-detect ---
-if(NOT CMAKE_TOOLCHAIN_FILE AND NOT CMAKE_CROSSCOMPILING)
-    set(TOOLCHAIN_FILE "${CMAKE_SOURCE_DIR}/aarch64-toolchain.cmake")
-    if(EXISTS ${TOOLCHAIN_FILE})
-        message(STATUS "Auto-detecting toolchain file: ${TOOLCHAIN_FILE}")
-        set(CMAKE_TOOLCHAIN_FILE ${TOOLCHAIN_FILE} CACHE FILEPATH "Toolchain file" FORCE)
-    else()
-        message(STATUS "No toolchain file found, using default compiler")
-    endif()
-endif()
-
-# --- Sysroot support ---
-if(CMAKE_CROSSCOMPILING AND DEFINED CMAKE_SYSROOT)
-    message(STATUS "Cross-compiling with sysroot: ${CMAKE_SYSROOT}")
-    set(ENV{PKG_CONFIG_SYSROOT_DIR} ${CMAKE_SYSROOT})
-    set(ENV{PKG_CONFIG_PATH} ${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig)
-    set(CMAKE_FIND_ROOT_PATH ${CMAKE_SYSROOT})
-endif()
-
-# --- Ensure pkg-config is available ---
-find_package(PkgConfig REQUIRED)
-
-# --- Add HAL and App subdirectories ---
+# Subdirectories
+add_subdirectory(config)
 add_subdirectory(hal)
-add_subdirectory(app)
+add_subdirectory(algorithms)
+add_subdirectory(motor)
 
-# --- Diagnostics ---
-message(STATUS "System name: ${CMAKE_SYSTEM_NAME}")
-message(STATUS "System processor: ${CMAKE_SYSTEM_PROCESSOR}")
-message(STATUS "C compiler: ${CMAKE_C_COMPILER}")
+# --- Executable ---
+add_executable(Motor_Controller
+    src/main.c
+    src/status_display.c
+    src/udp_server.c
+)
+
+# --- Include dirs for the app ---
+target_include_directories(Motor_Controller PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include      # app headers
+    ${CMAKE_SOURCE_DIR}/hal/include          # HAL headers
+    ${CMAKE_SOURCE_DIR}/config               # motor_config.h etc.
+    ${CMAKE_SOURCE_DIR}/motor                # motor_control.h, etc (if headers live here)
+    ${CMAKE_SOURCE_DIR}/algorithms           # bemf_sector.h, filters, etc.
+)
+
+# --- Link against libs ---
+target_link_libraries(Motor_Controller PRIVATE
+    hal
+    motor
+    algorithms
+    config
+    pthread
+)
+
+# --- Compiler warnings / sanitizers ---
+target_compile_options(Motor_Controller PRIVATE
+    -Wall -Werror -Wpedantic -Wextra -fdiagnostics-color -fsanitize=address -pthread
+)
+target_link_options(Motor_Controller PRIVATE
+    -fsanitize=address -pthread
+)
+
+# --- Copy executable to NFS ---
+add_custom_command(TARGET Motor_Controller POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        $<TARGET_FILE:Motor_Controller>
+        /home/connor/ENSC351/public/
+    COMMENT "Copying Motor_Controller executable to NFS directory"
+)

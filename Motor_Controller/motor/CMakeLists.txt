@@ -3,25 +3,23 @@ project(motor C)
 
 add_library(motor STATIC
     motor_control.c
-    hall_commutator.c
     position_estimator.c
     speed_measurement.c
+    hall_commutator.c
     sensorless_handover.c
-    motor_states.c
 )
 
-# Include directories (local + shared headers)
 target_include_directories(motor
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
         ${CMAKE_CURRENT_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/config          # motor_config.h
+        ${CMAKE_SOURCE_DIR}/hal/include     # PwmMotor_t, HallHandle_t, BemfHandle_t
+        ${CMAKE_SOURCE_DIR}/algorithms      # bemf_sector.h etc.
 )
-
-# Motor depends on nothing external except pthread + math
-find_library(M_LIB m REQUIRED)
 
 target_link_libraries(motor
     PUBLIC
+        algorithms
+        config
         pthread
-        ${M_LIB}
 )
