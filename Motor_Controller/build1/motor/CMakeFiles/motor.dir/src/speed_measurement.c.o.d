@@ -32,4 +32,16 @@ motor/CMakeFiles/motor.dir/src/speed_measurement.c.o: \
  /usr/aarch64-linux-gnu/include/string.h \
  /usr/aarch64-linux-gnu/include/bits/types/locale_t.h \
  /usr/aarch64-linux-gnu/include/bits/types/__locale_t.h \
- /usr/aarch64-linux-gnu/include/strings.h
+ /usr/aarch64-linux-gnu/include/strings.h \
+ /usr/aarch64-linux-gnu/include/stdio.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stdarg.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__mbstate_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos64_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/cookie_io_functions_t.h \
+ /usr/aarch64-linux-gnu/include/bits/stdio_lim.h \
+ /usr/aarch64-linux-gnu/include/bits/floatn.h \
+ /usr/aarch64-linux-gnu/include/bits/floatn-common.h

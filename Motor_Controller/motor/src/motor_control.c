@@ -177,6 +177,7 @@ void MotorControl_setFault(MotorFault_t fault)
     s_ctx.cmd.enable      = false;
     s_ctx.cmd.rpm_cmd     = 0.0f;
     s_rpm_cmd_target      = 0.0f;
+    s_ctx.cmd.torque_cmd  = 0.0f;
     s_rpm_cmd_request     = 0.0f;
     s_duty_cmd            = 0.0f;
 
@@ -293,6 +294,7 @@ static void handle_fault_state(void)
     // Stay in FAULT until an explicit reset
     s_ctx.cmd.enable      = false;
     s_ctx.cmd.rpm_cmd     = 0.0f;
+    s_ctx.cmd.torque_cmd  = 0.0f;
     s_rpm_cmd_target      = 0.0f;
     s_rpm_cmd_request     = 0.0f;
     s_duty_cmd            = 0.0f;
