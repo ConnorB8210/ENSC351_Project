@@ -1,25 +1,19 @@
 // motor_control.c
-
 #include "motor_control.h"
-
 #include "motor_config.h"
 #include "position_estimator.h"
 #include <string.h>   // memset
 #include <math.h>     // fabsf
 
 // ---------------- Tunable constants ----------------
-
 // Max allowed change in commanded speed per second (rpm/s)
 #define MOTOR_RPM_SLEW_RATE      2000.0f   // e.g. 2000 rpm per second
-
 // Threshold below which we consider the motor "stopped enough" to flip direction
 #define MOTOR_RPM_REV_THRESHOLD   100.0f   // rpm
-
 // Threshold below which we consider the motor fully stopped for IDLE
 #define MOTOR_RPM_STOP_THRESHOLD   50.0f   // rpm
 
 // ---------------- Static context & handles ----------------
-
 static MotorContext_t s_ctx;
 static PwmMotor_t    *s_pwm = NULL;
 
@@ -29,12 +23,10 @@ static float s_duty_cmd = 0.0f;
 // Slew / direction management
 static float s_rpm_cmd_target  = 0.0f;  // internal target for slew
 static float s_rpm_cmd_request = 0.0f;  // last requested rpm (user/API)
-
-static bool  s_dir_current   = false;   // actual direction (0=fwd,1=rev)
-static bool  s_dir_requested = false;   // requested direction
+static bool  s_dir_current     = false; // actual direction (0=fwd,1=rev)
+static bool  s_dir_requested   = false; // requested direction
 
 // ---------------- Simple speed PI controller ----------------
-
 typedef struct {
     float kp;
     float ki;
@@ -64,21 +56,17 @@ static float SpeedPI_step(SpeedPI_t *pi, float error)
 {
     // Integrate
     pi->integrator += pi->ki * error;
-
     // Anti-windup: clamp integrator
     if (pi->integrator > pi->out_max) pi->integrator = pi->out_max;
     if (pi->integrator < pi->out_min) pi->integrator = pi->out_min;
 
     float out = pi->kp * error + pi->integrator;
-
     if (out > pi->out_max) out = pi->out_max;
     if (out < pi->out_min) out = pi->out_min;
-
     return out;
 }
 
 // ---------------- Slew‑rate & direction logic ----------------
-
 // Update s_rpm_cmd_target and direction based on requested values and actual speed.
 static void update_target_and_direction(void)
 {
@@ -110,7 +98,6 @@ static void update_speed_slew(void)
 {
     // Per-step max change in RPM, based on configured slow loop rate
     float max_step = MOTOR_RPM_SLEW_RATE / (float)SPEED_LOOP_HZ;
-
     float diff = s_rpm_cmd_target - s_ctx.cmd.rpm_cmd;
 
     if (diff > max_step) {
@@ -122,37 +109,33 @@ static void update_speed_slew(void)
     s_ctx.cmd.rpm_cmd += diff;
 
     // Safety clamp
-    if (s_ctx.cmd.rpm_cmd > MOTOR_RPM_MAX)  s_ctx.cmd.rpm_cmd = MOTOR_RPM_MAX;
+    if (s_ctx.cmd.rpm_cmd > MOTOR_RPM_MAX) s_ctx.cmd.rpm_cmd = MOTOR_RPM_MAX;
     if (s_ctx.cmd.rpm_cmd < 0.0f)          s_ctx.cmd.rpm_cmd = 0.0f;
 }
 
 // ---------------- Public API ----------------
-
 void MotorControl_init(PwmMotor_t *pwm)
 {
     s_pwm = pwm;
-
     memset(&s_ctx, 0, sizeof(s_ctx));
-    s_ctx.state = MOTOR_STATE_IDLE;
-    s_ctx.fault = MOTOR_FAULT_NONE;
 
-    s_ctx.cmd.enable     = false;
-    s_ctx.cmd.direction  = false;   // default forward (0=fwd,1=rev)
-    s_ctx.cmd.rpm_cmd    = 0.0f;
-    s_ctx.cmd.torque_cmd = 0.0f;
+    s_ctx.state         = MOTOR_STATE_IDLE;
+    s_ctx.fault         = MOTOR_FAULT_NONE;
+    s_ctx.cmd.enable    = false;
+    s_ctx.cmd.direction = false;   // default forward (0=fwd,1=rev)
+    s_ctx.cmd.rpm_cmd   = 0.0f;
+    s_ctx.cmd.torque_cmd= 0.0f;
 
-    s_duty_cmd           = 0.0f;
-
-    s_rpm_cmd_target     = 0.0f;
-    s_rpm_cmd_request    = 0.0f;
-
-    s_dir_current        = false;   // forward
-    s_dir_requested      = false;
+    s_duty_cmd          = 0.0f;
+    s_rpm_cmd_target    = 0.0f;
+    s_rpm_cmd_request   = 0.0f;
+    s_dir_current       = false;   // forward
+    s_dir_requested     = false;
 
     SpeedPI_init(&s_speed_pi);
 
     if (s_pwm) {
-        PwmMotor_stop(s_pwm);       // ensure outputs off
+        PwmMotor_stop(s_pwm);      // ensure outputs off
     }
 }
 
@@ -182,9 +165,8 @@ void MotorControl_setSpeedCmd(float rpm_cmd, bool direction)
 
 void MotorControl_setFault(MotorFault_t fault)
 {
+    // Don't clear faults or overwrite first cause here
     if (s_ctx.state == MOTOR_STATE_FAULT) {
-        // Already in fault; overwrite or keep first cause as you prefer
-        s_ctx.fault = fault;
         return;
     }
 
@@ -201,6 +183,23 @@ void MotorControl_setFault(MotorFault_t fault)
     if (s_pwm) {
         PwmMotor_stop(s_pwm);
     }
+}
+
+// Explicit clear-fault API: call from UDP or UI when it's safe to try again.
+void MotorControl_clearFault(void)
+{
+    // Reset fault and state, but keep motor disabled so host must re-enable.
+    s_ctx.fault          = MOTOR_FAULT_NONE;
+    s_ctx.state          = MOTOR_STATE_IDLE;
+    s_ctx.cmd.enable     = false;
+    s_ctx.cmd.rpm_cmd    = 0.0f;
+    s_ctx.cmd.torque_cmd = 0.0f;
+
+    s_rpm_cmd_target     = 0.0f;
+    s_rpm_cmd_request    = 0.0f;
+    s_duty_cmd           = 0.0f;
+
+    // Don't touch s_dir_current / s_dir_requested; let host decide direction.
 }
 
 void MotorControl_updateBusVoltage(float vbus)
@@ -223,20 +222,16 @@ void MotorControl_updateBusVoltage(float vbus)
 }
 
 // ---------------- Internal helpers ----------------
-
 static void update_measurements(void)
 {
     // Use Position Estimator for RPM; it already pulls from SpeedMeasurement
     PosEst_t pe = PosEst_get();
-
     s_ctx.meas.rpm_mech = pe.mech_speed;
     s_ctx.meas.rpm_elec = pe.elec_speed;
-
     // TODO: wire actual bus current/phase currents if you have them
 }
 
 // State handlers
-
 static void handle_idle_state(void)
 {
     // In IDLE, keep outputs off
@@ -274,12 +269,10 @@ static void handle_run_state(float dt_s)
     // fall back to IDLE.
     if (!s_ctx.cmd.enable ||
         (s_rpm_cmd_request <= 0.0f && rpm_abs < MOTOR_RPM_STOP_THRESHOLD)) {
-
         s_ctx.state          = MOTOR_STATE_IDLE;
         s_ctx.cmd.rpm_cmd    = 0.0f;
         s_rpm_cmd_target     = 0.0f;
         s_duty_cmd           = 0.0f;
-
         if (s_pwm) {
             PwmMotor_stop(s_pwm);
         }
@@ -297,28 +290,26 @@ static void handle_run_state(float dt_s)
 
 static void handle_fault_state(void)
 {
-    // Stay in FAULT until an explicit reset (not implemented yet)
+    // Stay in FAULT until an explicit reset
     s_ctx.cmd.enable      = false;
     s_ctx.cmd.rpm_cmd     = 0.0f;
     s_rpm_cmd_target      = 0.0f;
     s_rpm_cmd_request     = 0.0f;
     s_duty_cmd            = 0.0f;
-
     if (s_pwm) {
         PwmMotor_stop(s_pwm);
     }
 }
 
 // ---------------- Slow loop ----------------
-
 void MotorControl_stepSlow(void)
 {
     // NOTE: This is called from slow loop (e.g. SPEED_LOOP_HZ Hz)
-
     static float s_last_time_s = 0.0f;
-    float now_s = 0.0f; // If you want real dt, pass now_s in from caller
 
-    float dt_s = 0.0f;
+    float now_s = 0.0f; // If you want real dt, pass now_s in from caller
+    float dt_s  = 0.0f;
+
     if (s_last_time_s > 0.0f) {
         dt_s = now_s - s_last_time_s;
         if (dt_s < 0.0f) dt_s = 0.0f;
@@ -339,15 +330,12 @@ void MotorControl_stepSlow(void)
     case MOTOR_STATE_IDLE:
         handle_idle_state();
         break;
-
     case MOTOR_STATE_ALIGN:
         handle_align_state();
         break;
-
     case MOTOR_STATE_RUN:
         handle_run_state(dt_s);
         break;
-
     case MOTOR_STATE_FAULT:
     default:
         handle_fault_state();
@@ -356,16 +344,13 @@ void MotorControl_stepSlow(void)
 }
 
 // ---------------- Fast loop ----------------
-
 void MotorControl_stepFast(void)
 {
     // NOTE: This is called from fast loop (e.g. FAST_LOOP_HZ)
-
     // If not in RUN or enable is false or we’re in FAULT: outputs off
     if (s_ctx.state != MOTOR_STATE_RUN ||
         !s_ctx.cmd.enable ||
         s_ctx.fault != MOTOR_FAULT_NONE) {
-
         s_duty_cmd = 0.0f;
         if (s_pwm) {
             PwmMotor_stop(s_pwm);
@@ -391,7 +376,6 @@ void MotorControl_stepFast(void)
 
     // Direction: 0 = forward, 1 = reverse (we keep s_ctx.cmd.direction in sync)
     bool dir_fwd = (s_ctx.cmd.direction == 0);
-
     if (s_pwm) {
         PwmMotor_setSixStep(s_pwm, sector, duty, dir_fwd);
     }

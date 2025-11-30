@@ -1,4 +1,4 @@
-// udp_server.c
+// udp_server_motor.c
 #include "udp_server.h"
 #include "motor_control.h"
 #include "motor_states.h"
@@ -10,6 +10,7 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <ctype.h>
+#include <time.h>      // <-- added
 
 #define UDP_PORT        12345
 #define MAX_PACKET_SIZE 1500
@@ -18,21 +19,6 @@ static pthread_t server_thread;
 static int sockfd = -1;
 static int running = 0;
 static volatile int g_stopRequested = 0;
-
-// ----------------------------------------------------
-// Sensor mode API from main.c
-// ----------------------------------------------------
-
-// Must match the enum in main.c
-typedef enum {
-    SENSOR_MODE_HALL_ONLY = 0,
-    SENSOR_MODE_AUTO      = 1,
-    SENSOR_MODE_BEMF_ONLY = 2
-} SensorMode_t;
-
-// Provided by main.c
-extern void         Control_setSensorMode(SensorMode_t mode);
-extern SensorMode_t Control_getSensorMode(void);
 
 static void* udp_thread_func(void* arg);
 static void send_response(const char* response,
@@ -46,42 +32,12 @@ static void to_lower_str(char *s)
     }
 }
 
-// ----------------------------------------------------
-// Small helpers to stringify enums
-// ----------------------------------------------------
-static const char* motor_state_to_str(MotorState_t s)
+// simple local time helper (seconds, monotonic-ish)
+static double get_time_s(void)
 {
-    switch (s) {
-    case MOTOR_STATE_IDLE:  return "IDLE";
-    case MOTOR_STATE_ALIGN: return "ALIGN";
-    case MOTOR_STATE_RUN:   return "RUN";
-    case MOTOR_STATE_FAULT: return "FAULT";
-    default:                return "UNKNOWN";
-    }
-}
-
-static const char* motor_fault_to_str(MotorFault_t f)
-{
-    switch (f) {
-    case MOTOR_FAULT_NONE:        return "NONE";
-    case MOTOR_FAULT_OVERCURRENT: return "OVERCURRENT";
-    case MOTOR_FAULT_OVERVOLT:    return "OVERVOLT";
-    case MOTOR_FAULT_UNDERVOLT:   return "UNDERVOLT";
-    case MOTOR_FAULT_HALL_TIMEOUT:return "HALL_TIMEOUT";
-    case MOTOR_FAULT_DRV8302:     return "DRV8302";
-    case MOTOR_FAULT_TIMING:      return "TIMING";
-    default:                      return "UNKNOWN";
-    }
-}
-
-static const char* sensor_mode_to_str(SensorMode_t m)
-{
-    switch (m) {
-    case SENSOR_MODE_HALL_ONLY: return "HALL_ONLY";
-    case SENSOR_MODE_AUTO:      return "AUTO";
-    case SENSOR_MODE_BEMF_ONLY: return "BEMF_ONLY";
-    default:                    return "UNKNOWN";
-    }
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
 // ----------------------------------------------------
@@ -90,7 +46,6 @@ static const char* sensor_mode_to_str(SensorMode_t m)
 bool UDPServer_init(void)
 {
     struct sockaddr_in server_addr;
-
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         perror("socket");
@@ -133,7 +88,6 @@ void UDPServer_cleanup(void)
         close(sockfd);
         sockfd = -1;
     }
-
     pthread_join(server_thread, NULL);
     printf("Motor UDP server stopped.\n");
 }
@@ -150,15 +104,14 @@ static void print_help(struct sockaddr_in* client_addr, socklen_t addr_len)
 {
     const char *msg =
         "Motor Control UDP Commands:\n"
-        "  enable                    -- enable motor\n"
-        "  disable                   -- disable motor\n"
-        "  set rpm <value>           -- set speed command (0-5000)\n"
-        "  set dir <fwd|rev>         -- set direction\n"
-        "  sensor                    -- get sensor mode (0=hall,1=auto,2=bemf)\n"
-        "  sensor <hall|auto|bemf>   -- set sensor mode\n"
-        "  status                    -- get motor state & telemetry\n"
-        "  stop                      -- shutdown program\n"
-        "  help                      -- show this help\n";
+        "  enable               -- enable motor\n"
+        "  disable              -- disable motor\n"
+        "  set rpm <value>      -- set speed command (0-5000)\n"
+        "  set dir <fwd|rev>    -- set direction\n"
+        "  status               -- get motor state & telemetry\n"
+        "  statusraw            -- CSV: t,rpm_cmd,rpm_mech,torque,vbus,state,fault\n"
+        "  stop                 -- shutdown program\n"
+        "  help                 -- show this help\n";
     send_response(msg, client_addr, addr_len);
 }
 
@@ -186,8 +139,7 @@ static void handle_set(struct sockaddr_in* client_addr,
             send_response(msg, client_addr, addr_len);
             return;
         }
-        MotorControl_setSpeedCmd((float)rpm,
-                                 MotorControl_getContext().cmd.direction);
+        MotorControl_setSpeedCmd((float)rpm, MotorControl_getContext().cmd.direction);
         send_response("OK: rpm updated\n", client_addr, addr_len);
         return;
     }
@@ -199,7 +151,6 @@ static void handle_set(struct sockaddr_in* client_addr,
             send_response("ERR: set dir <fwd|rev>\n", client_addr, addr_len);
             return;
         }
-
         bool forward = true;
         if (strcmp(arg2, "fwd") == 0 || strcmp(arg2, "forward") == 0) {
             forward = true;
@@ -212,7 +163,7 @@ static void handle_set(struct sockaddr_in* client_addr,
         }
 
         MotorContext_t ctx = MotorControl_getContext();
-        // direction bool: 0 = fwd, 1 = rev
+        // direction: 0 = fwd, 1 = rev
         MotorControl_setSpeedCmd(ctx.cmd.rpm_cmd, !forward);
         send_response("OK: direction updated\n", client_addr, addr_len);
         return;
@@ -270,59 +221,39 @@ static void* udp_thread_func(void* arg)
             char *arg1 = strtok(NULL, " \t");
             handle_set(&client_addr, addr_len, arg1);
         }
-        else if (strcmp(tok, "sensor") == 0 || strcmp(tok, "sens") == 0) {
-            char *arg1 = strtok(NULL, " \t");
-            if (!arg1) {
-                // QUERY: sensor -> return current mode as number
-                SensorMode_t m = Control_getSensorMode();
-                char msg[32];
-                snprintf(msg, sizeof(msg), "%d\n", (int)m);  // 0,1,2
-                send_response(msg, &client_addr, addr_len);
-            } else {
-                SensorMode_t mode;
-                if (strcmp(arg1, "hall") == 0) {
-                    mode = SENSOR_MODE_HALL_ONLY;
-                } else if (strcmp(arg1, "auto") == 0) {
-                    mode = SENSOR_MODE_AUTO;
-                } else if (strcmp(arg1, "bemf") == 0 ||
-                           strcmp(arg1, "sensorless") == 0) {
-                    mode = SENSOR_MODE_BEMF_ONLY;
-                } else {
-                    send_response("ERR: sensor mode must be hall|auto|bemf.\n",
-                                  &client_addr, addr_len);
-                    continue;
-                }
-
-                Control_setSensorMode(mode);
-
-                char msg[64];
-                snprintf(msg, sizeof(msg),
-                         "OK: sensor mode set to %d(%s)\n",
-                         (int)mode, sensor_mode_to_str(mode));
-                send_response(msg, &client_addr, addr_len);
-            }
-        }
         else if (strcmp(tok, "status") == 0) {
             MotorContext_t ctx = MotorControl_getContext();
             PosEst_t pe = PosEst_get();
-            SensorMode_t sm = Control_getSensorMode();
-
             char msg[256];
             snprintf(msg, sizeof(msg),
-                     "STATE=%d(%s) FAULT=%d(%s) "
+                     "STATE=%d FAULT=%d "
                      "RPM=%.1f CMD=%.1f DUTY=%.3f "
-                     "SECTOR=%u DIR=%d SENSOR_MODE=%d(%s)\n",
+                     "SECTOR=%u DIR=%d VBUS=%.2f\n",
                      ctx.state,
-                     motor_state_to_str(ctx.state),
                      ctx.fault,
-                     motor_fault_to_str(ctx.fault),
                      ctx.meas.rpm_mech,
                      ctx.cmd.rpm_cmd,
                      ctx.cmd.torque_cmd,
                      pe.sector,
                      ctx.cmd.direction,
-                     (int)sm,
-                     sensor_mode_to_str(sm));
+                     ctx.meas.v_bus);
+            send_response(msg, &client_addr, addr_len);
+        }
+        else if (strcmp(tok, "statusraw") == 0) {
+            // CSV log: t,rpm_cmd,rpm_mech,torque_cmd,v_bus,state,fault
+            double t   = get_time_s();
+            MotorContext_t ctx = MotorControl_getContext();
+
+            char msg[256];
+            snprintf(msg, sizeof(msg),
+                     "%.6f,%.3f,%.3f,%.3f,%.3f,%d,%d\n",
+                     t,
+                     ctx.cmd.rpm_cmd,      // internal slewed command
+                     ctx.meas.rpm_mech,    // measured RPM
+                     ctx.cmd.torque_cmd,   // PI output / duty
+                     ctx.meas.v_bus,       // bus voltage
+                     ctx.state,
+                     ctx.fault);
             send_response(msg, &client_addr, addr_len);
         }
         else if (strcmp(tok, "stop") == 0) {

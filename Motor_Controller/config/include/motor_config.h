@@ -82,9 +82,9 @@
 // Hall sensor configuration
 // ---------------------------------------------------------
 // GPIO offsets (change to match your wiring!)
-#define HALL_A_OFFSET               10
-#define HALL_B_OFFSET               11
-#define HALL_C_OFFSET               12
+#define HALL_A_OFFSET               7  //GPIO16
+#define HALL_B_OFFSET               15 //GPIO5
+#define HALL_C_OFFSET               17 //GPIO6
 
 // Timeout if no edges detected
 #define HALL_TIMEOUT_MS             200
@@ -93,19 +93,19 @@
 // DRV8302 / PWM pinout configuration
 // ---------------------------------------------------------
 // These must match your board wiring to the GPIO chip
-#define INH_A_OFFSET                20
-#define INL_A_OFFSET                21
+#define INH_A_OFFSET                8  //GPIO17
+#define INL_A_OFFSET                11 //GPIO18
 
-#define INH_B_OFFSET                22
-#define INL_B_OFFSET                23
+#define INH_B_OFFSET                12 //GPIO19
+#define INL_B_OFFSET                10 //GPIO20
 
-#define INH_C_OFFSET                24
-#define INL_C_OFFSET                25
+#define INH_C_OFFSET                9  //GPIO21
+#define INL_C_OFFSET                14 //GPIO14
 
 // DRV8302 management pins (optional)
-#define DRV_EN_GATE_OFFSET          30
-#define DRV_NFAULT_OFFSET           31
-#define DRV_NOCTW_OFFSET            32
+#define DRV_EN_GATE_OFFSET          41 //GPIO22
+#define DRV_NFAULT_OFFSET           42 //GPIO25
+#define DRV_NOCTW_OFFSET            33 //GPIO27
 
 // ---------------------------------------------------------
 // Sensorless (BEMF) run‑up / handover configuration

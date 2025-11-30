@@ -1,6 +1,4 @@
-// motor_control.h
 #pragma once
-
 #include <stdbool.h>
 #include "motor_states.h"
 #include "pwm_motor.h"
@@ -30,6 +28,11 @@ void MotorControl_setSpeedCmd(float rpm_cmd, bool direction);
 // Report a fault (overcurrent, timing, hall timeout, etc.)
 // This forces the state machine into MOTOR_STATE_FAULT and disables outputs.
 void MotorControl_setFault(MotorFault_t fault);
+
+// Explicitly clear a latched fault.
+// Puts the controller back to MOTOR_STATE_IDLE with enable=false,
+// and zeroes rpm/torque commands. Host must call setEnable() again.
+void MotorControl_clearFault(void);
 
 // Feed measured bus voltage into the controller.
 // This stores v_bus into the measurement struct and automatically

@@ -23,7 +23,7 @@
 #include "gpio.h"
 #include "speed_measurement.h"
 #include "sensorless_handover.h"
-#include "status_display.h"
+#include "status_display.h"    
 
 typedef enum {
     SENSOR_MODE_HALL_ONLY = 0,
@@ -39,13 +39,16 @@ static BemfHandle_t  g_bemf;
 static PwmMotor_t    g_pwm_motor;
 static HallHandle_t  g_hall;
 
-// Optional: simple gate-enable GPIO (EN_GATE)
+// Optional: simple gate‑enable GPIO (EN_GATE)
 static GPIO_Handle  *g_drv_en_gpio = NULL;
 
-static pthread_t     g_fast_thread;
-
+static pthread_t            g_fast_thread;
 static SensorlessHandover_t g_handover;
-static SensorMode_t         g_sensor_mode = SENSOR_MODE_AUTO;
+static SensorMode_t         g_sensor_mode = SENSOR_MODE_HALL_ONLY;
+
+// Forward‑declared so udp_server.c / status_display.c can use them
+SensorMode_t Control_getSensorMode(void);
+void         Control_setSensorMode(SensorMode_t mode);
 
 // ---------------- Time helpers ----------------
 static double get_time_s(void)
@@ -55,8 +58,11 @@ static double get_time_s(void)
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
 }
 
-// ---------------- Sensor mode control helpers ----------------
-// These can be called from elsewhere (e.g. UDP server) via extern.
+// ---------------- Sensor mode control ----------------
+SensorMode_t Control_getSensorMode(void)
+{
+    return g_sensor_mode;
+}
 
 void Control_setSensorMode(SensorMode_t mode)
 {
@@ -64,35 +70,29 @@ void Control_setSensorMode(SensorMode_t mode)
 
     switch (mode) {
     case SENSOR_MODE_HALL_ONLY:
-        // Hall speed + Hall position, no handover
+        // Hall sensors only
         SpeedMeas_setMode(SPEED_SRC_HALL);
         PosEst_setMode(POS_MODE_HALL);
         SensorlessHandover_setEnable(&g_handover, false);
         break;
 
     case SENSOR_MODE_AUTO:
-        // Start in Hall, auto-handover enabled
+        // Start in Hall; allow handover helper to switch to BEMF
         SpeedMeas_setMode(SPEED_SRC_HALL);
         PosEst_setMode(POS_MODE_HALL);
-        // Re-arm handover logic
-        SensorlessHandover_init(&g_handover,
-                                SENSORLESS_MIN_RPM_MECH,
-                                SENSORLESS_STABLE_SAMPLES);
         SensorlessHandover_setEnable(&g_handover, true);
         break;
 
     case SENSOR_MODE_BEMF_ONLY:
-        // Force BEMF-only (for testing sensorless)
+        // Force sensorless
         SpeedMeas_setMode(SPEED_SRC_BEMF);
         PosEst_setMode(POS_MODE_BEMF);
         SensorlessHandover_setEnable(&g_handover, false);
         break;
-    }
-}
 
-SensorMode_t Control_getSensorMode(void)
-{
-    return g_sensor_mode;
+    default:
+        break;
+    }
 }
 
 // ---------------- Signal handler ----------------
@@ -121,7 +121,7 @@ static int app_hw_init(void)
 
     // --- PWM motor / DRV8302 gate driver ---
     if (!PwmMotor_init(&g_pwm_motor,
-                       "/dev/gpiochip0",
+                       "/dev/gpiochip2",
                        INH_A_OFFSET, INL_A_OFFSET,
                        INH_B_OFFSET, INL_B_OFFSET,
                        INH_C_OFFSET, INL_C_OFFSET)) {
@@ -134,7 +134,7 @@ static int app_hw_init(void)
     // Optional: enable DRV8302 EN_GATE via GPIO
     {
         unsigned int offs[1] = { DRV_EN_GATE_OFFSET };
-        g_drv_en_gpio = gpio_init("/dev/gpiochip0",
+        g_drv_en_gpio = gpio_init("/dev/gpiochip1",
                                   offs,
                                   1,
                                   GPIOD_LINE_DIRECTION_OUTPUT,
@@ -150,7 +150,7 @@ static int app_hw_init(void)
 
     // --- Hall sensors ---
     if (!Hall_init(&g_hall,
-                   "/dev/gpiochip0",
+                   "/dev/gpiochip2",
                    HALL_A_OFFSET,
                    HALL_B_OFFSET,
                    HALL_C_OFFSET)) {
@@ -165,13 +165,16 @@ static int app_hw_init(void)
 
     // --- Motor control + position estimator ---
     MotorControl_init(&g_pwm_motor);
-    PosEst_init(POS_MODE_HALL);   // start in Hall mode
+    PosEst_init(POS_MODE_HALL);   // initial mode; Control_setSensorMode will refine
 
-    // --- Sensorless handover helper + default mode (AUTO) ---
+    // --- Sensorless handover helper ---
     SensorlessHandover_init(&g_handover,
                             SENSORLESS_MIN_RPM_MECH,     // from motor_config.h
                             SENSORLESS_STABLE_SAMPLES);  // from motor_config.h
-    Control_setSensorMode(SENSOR_MODE_AUTO);
+    SensorlessHandover_setEnable(&g_handover, false);
+
+    // Start in Hall‑only mode for first bring‑up
+    Control_setSensorMode(SENSOR_MODE_HALL_ONLY);
 
     return 0;
 }
@@ -207,7 +210,7 @@ static void *fast_loop_thread(void *arg)
 {
     (void)arg;
 
-    // Try to make this a real-time SCHED_FIFO thread (best-effort)
+    // Try to make this a real‑time SCHED_FIFO thread (best‑effort)
     struct sched_param sp;
     memset(&sp, 0, sizeof(sp));
     sp.sched_priority = 80; // tune as needed, requires CAP_SYS_NICE
@@ -215,20 +218,28 @@ static void *fast_loop_thread(void *arg)
         perror("pthread_setschedparam (SCHED_FIFO) failed; running non-RT");
     }
 
-    const double Ts = 1.0 / (double)FAST_LOOP_HZ;
+    const double Ts        = 1.0 / (double)FAST_LOOP_HZ;
     const double jitter_hi = Ts * 3.0;   // upper bound on acceptable dt
     const double jitter_lo = Ts * 0.1;   // lower bound
 
     double t_prev = get_time_s();
     double t_next = t_prev + Ts;
 
+    static int timing_warn_count = 0;
+
     while (!g_stop) {
         double t_now = get_time_s();
         double dt    = t_now - t_prev;
 
-        // Jitter / timing fault detection
+        // Jitter / timing *logging* (no hard latch for first bring‑up)
         if (dt > jitter_hi || dt < jitter_lo) {
-            MotorControl_setFault(MOTOR_FAULT_TIMING);
+            if ((timing_warn_count++ % 100) == 0) {
+                fprintf(stderr,
+                        "WARN: fast-loop jitter dt=%.6f s (expected %.6f s)\n",
+                        dt, Ts);
+            }
+            // If you later want to hard‑trip:
+            // MotorControl_setFault(MOTOR_FAULT_TIMING);
         }
 
         t_prev = t_now;
@@ -236,7 +247,7 @@ static void *fast_loop_thread(void *arg)
         // Fast control step (commutation + duty apply)
         MotorControl_stepFast();
 
-        // Simple sleep-until-next logic (not perfect RT but OK for now)
+        // Simple sleep‑until‑next logic
         t_now = get_time_s();
         double sleep_s = t_next - t_now;
         if (sleep_s < 0.0) {
@@ -259,7 +270,7 @@ static void *fast_loop_thread(void *arg)
 // ---------------- Slow loop (1 kHz) ----------------
 static void slow_loop_step(void)
 {
-    // 0) Time stamp for speed measurement + handover
+    // Time stamp for speed measurement + handover
     double now_s = get_time_s();
 
     // 1) Update BEMF / Vbus sensing
@@ -271,14 +282,18 @@ static void slow_loop_step(void)
 
     // 3) Update speed / sector from Hall or BEMF
     SpeedMeas_update((float)now_s);
+    SpeedEstimate_t spd = SpeedMeas_get();
 
-    // 4) Run sensorless handover helper (Hall -> BEMF) if conditions are met
-    MotorContext_t ctx = MotorControl_getContext();
-    bool dir_fwd = (ctx.cmd.direction == 0);  // 0 = forward in our scheme
+    // 4) Run sensorless handover helper (Hall -> BEMF) if AUTO mode
+    if (g_sensor_mode == SENSOR_MODE_AUTO) {
+        MotorContext_t ctx = MotorControl_getContext();
+        bool dir_fwd = (ctx.cmd.direction == 0);  // 0 = forward
 
-    (void)SensorlessHandover_step(&g_handover,
-                                  (float)now_s,
-                                  dir_fwd);
+        (void)SensorlessHandover_step(&g_handover,
+                                      (float)now_s,
+                                      spd.sector,   // <-- corrected sector arg
+                                      dir_fwd);
+    }
 
     // 5) Update position estimator (uses SpeedMeas_get())
     PosEst_update();
@@ -306,7 +321,7 @@ int main(void)
         fprintf(stderr, "Warning: UDP server failed to start; continuing without it.\n");
     }
 
-    // Start periodic status display
+    // Start periodic status display (telemetry to stdout)
     StatusDisplay_init();
 
     // Launch fast loop RT thread
@@ -314,6 +329,7 @@ int main(void)
     if (err != 0) {
         fprintf(stderr, "Failed to create fast loop thread: %s\n", strerror(err));
         UDPServer_cleanup();
+        StatusDisplay_cleanup();
         app_hw_deinit();
         return 1;
     }
@@ -324,6 +340,7 @@ int main(void)
 
     // Main thread: slow loop (approx SPEED_LOOP_HZ) + supervision
     const double slow_Ts = 1.0 / (double)SPEED_LOOP_HZ;
+
     while (!g_stop) {
         double t0 = get_time_s();
 
@@ -337,9 +354,10 @@ int main(void)
         }
 
         // Throttle to ~SPEED_LOOP_HZ (not hard RT, just approximate)
-        double t1 = get_time_s();
+        double t1      = get_time_s();
         double elapsed = t1 - t0;
         double sleep_s = slow_Ts - elapsed;
+
         if (sleep_s > 0.0) {
             struct timespec ts;
             ts.tv_sec  = (time_t)sleep_s;
@@ -360,7 +378,6 @@ int main(void)
 
     // Make sure motor is off
     MotorControl_setEnable(false);
-
     app_hw_deinit();
 
     printf("Motor control app exited.\n");
