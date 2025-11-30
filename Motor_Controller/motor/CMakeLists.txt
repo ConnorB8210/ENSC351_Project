@@ -13,9 +13,9 @@ target_include_directories(motor
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/config           # motor_config.h, runtime .h
-        ${CMAKE_SOURCE_DIR}/hal/include      # PwmMotor_t, HallHandle_t, BemfHandle_t
-        ${CMAKE_SOURCE_DIR}/algorithms       # bemf_sector.h, etc.
+        ${CMAKE_SOURCE_DIR}/config
+        ${CMAKE_SOURCE_DIR}/hal/include
+        ${CMAKE_SOURCE_DIR}/algorithms
 )
 
 target_link_libraries(motor
