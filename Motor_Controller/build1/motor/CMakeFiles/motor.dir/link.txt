@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc libmotor.a CMakeFiles/motor.dir/src/motor_control.c.o CMakeFiles/motor.dir/src/position_estimator.c.o CMakeFiles/motor.dir/src/speed_measurement.c.o CMakeFiles/motor.dir/src/hall_commutator.c.o CMakeFiles/motor.dir/src/sensorless_handover.c.o
+/usr/bin/aarch64-linux-gnu-ranlib libmotor.a

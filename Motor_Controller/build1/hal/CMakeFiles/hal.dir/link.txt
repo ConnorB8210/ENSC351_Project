@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc libhal.a CMakeFiles/hal.dir/src/adc.c.o CMakeFiles/hal.dir/src/bemf.c.o CMakeFiles/hal.dir/src/gpio.c.o CMakeFiles/hal.dir/src/drv8302.c.o CMakeFiles/hal.dir/src/timer.c.o CMakeFiles/hal.dir/src/hall.c.o CMakeFiles/hal.dir/src/pwm.c.o CMakeFiles/hal.dir/src/pwm_motor.c.o
+/usr/bin/aarch64-linux-gnu-ranlib libhal.a

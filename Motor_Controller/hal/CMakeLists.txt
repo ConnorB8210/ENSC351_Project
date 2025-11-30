@@ -19,11 +19,11 @@ pkg_check_modules(LIBGPIOD REQUIRED libgpiod)
 # --- Math library ---
 find_library(M_LIB m REQUIRED)
 
-# --- Include directories ---
 target_include_directories(hal
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/include  # hal headers
-        ${CMAKE_SOURCE_DIR}/config           # motor_config.h used by bemf.c
+        ${CMAKE_CURRENT_SOURCE_DIR}/include      # <-- this is hal/include
+        ${CMAKE_SOURCE_DIR}/config               # for motor_config.h
+        ${CMAKE_SOURCE_DIR}/config/include
         ${LIBGPIOD_INCLUDE_DIRS}
 )
 

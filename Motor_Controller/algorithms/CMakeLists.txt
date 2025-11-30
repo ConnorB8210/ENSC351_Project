@@ -10,7 +10,9 @@ target_include_directories(algorithms
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
         ${CMAKE_CURRENT_SOURCE_DIR}/include
-        ${CMAKE_SOURCE_DIR}/config
+        ${CMAKE_SOURCE_DIR}/config          # e.g. Motor_Controller/config/motor_config.h
+        ${CMAKE_SOURCE_DIR}/config/include  # if you keep headers in config/include/
+        ${CMAKE_SOURCE_DIR}/hal/include     # for bemf.h
 )
 
 find_library(M_LIB m REQUIRED)

@@ -146,7 +146,7 @@ static void handle_set(struct sockaddr_in* client_addr,
 
     // SET DIRECTION ---------------------
     if (strcmp(arg1, "dir") == 0) {
-        char *arg2 = strtok(NULL, " \t");
+        char *arg2 = strtok(NULL, " \t\r\n");
         if (!arg2) {
             send_response("ERR: set dir <fwd|rev>\n", client_addr, addr_len);
             return;
@@ -197,7 +197,7 @@ static void* udp_thread_func(void* arg)
         work[sizeof(work)-1] = '\0';
         to_lower_str(work);
 
-        char *tok = strtok(work, " \t");
+        char *tok = strtok(work, " \t\r\n");
         if (!tok) {
             send_response("ERR: empty command\n", &client_addr, addr_len);
             continue;
@@ -218,7 +218,7 @@ static void* udp_thread_func(void* arg)
             send_response("OK: motor disabled\n", &client_addr, addr_len);
         }
         else if (strcmp(tok, "set") == 0) {
-            char *arg1 = strtok(NULL, " \t");
+            char *arg1 = strtok(NULL, " \t\r\n");
             handle_set(&client_addr, addr_len, arg1);
         }
         else if (strcmp(tok, "status") == 0) {

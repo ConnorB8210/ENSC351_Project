@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc libconfig.a CMakeFiles/config.dir/src/motor_config_runtime.c.o
+/usr/bin/aarch64-linux-gnu-ranlib libconfig.a

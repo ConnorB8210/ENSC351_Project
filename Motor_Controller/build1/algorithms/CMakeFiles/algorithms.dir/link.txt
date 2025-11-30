@@ -1,0 +1,2 @@
+/usr/bin/aarch64-linux-gnu-ar qc libalgorithms.a CMakeFiles/algorithms.dir/src/bemf_sector.c.o CMakeFiles/algorithms.dir/src/filters.c.o CMakeFiles/algorithms.dir/src/pi_controller.c.o
+/usr/bin/aarch64-linux-gnu-ranlib libalgorithms.a

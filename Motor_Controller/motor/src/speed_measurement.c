@@ -5,6 +5,7 @@
 #include "hall_commutator.h"
 
 #include <string.h>   // memset
+#include <stdio.h>
 
 #define SECTORS_PER_ELEC_REV        6.0f
 #define MIN_PERIOD_S                1e-5f
@@ -86,6 +87,15 @@ static void update_hall(float now_s)
     // 1) Read hall bits and convert to sector
     uint8_t hall_bits = Hall_readBits(s_hall);
     uint8_t sector    = HallComm_hallToSector(hall_bits);
+
+    static uint8_t last_print_sector = 0xFF;
+    static uint8_t last_print_bits   = 0xFF;
+    if (sector != last_print_sector || hall_bits != last_print_bits) {
+        last_print_sector = sector;
+        last_print_bits   = hall_bits;
+        fprintf(stderr, "HALL DBG: bits=0x%02X sector=%d t=%.3f\n",
+                hall_bits, sector, now_s);
+    }
 
     if (sector == 0xFF) {
         // Invalid hall pattern -> invalidate

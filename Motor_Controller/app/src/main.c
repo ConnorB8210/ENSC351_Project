@@ -269,7 +269,7 @@ static void *fast_loop_thread(void *arg)
 
 // ---------------- Slow loop (1 kHz) ----------------
 static void slow_loop_step(void)
-{
+{  
     // Time stamp for speed measurement + handover
     double now_s = get_time_s();
 
@@ -282,7 +282,7 @@ static void slow_loop_step(void)
 
     // 3) Update speed / sector from Hall or BEMF
     SpeedMeas_update((float)now_s);
-    SpeedEstimate_t spd = SpeedMeas_get();
+    //SpeedEstimate_t spd = SpeedMeas_get();
 
     // 4) Run sensorless handover helper (Hall -> BEMF) if AUTO mode
     if (g_sensor_mode == SENSOR_MODE_AUTO) {
@@ -290,8 +290,7 @@ static void slow_loop_step(void)
         bool dir_fwd = (ctx.cmd.direction == 0);  // 0 = forward
 
         (void)SensorlessHandover_step(&g_handover,
-                                      (float)now_s,
-                                      spd.sector,   // <-- corrected sector arg
+                                      (float)now_s,                                     
                                       dir_fwd);
     }
 

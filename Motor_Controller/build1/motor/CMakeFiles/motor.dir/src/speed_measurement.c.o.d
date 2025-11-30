@@ -1,0 +1,35 @@
+motor/CMakeFiles/motor.dir/src/speed_measurement.c.o: \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/src/speed_measurement.c \
+ /usr/aarch64-linux-gnu/include/stdc-predef.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/speed_measurement.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stdint.h \
+ /usr/aarch64-linux-gnu/include/stdint.h \
+ /usr/aarch64-linux-gnu/include/bits/libc-header-start.h \
+ /usr/aarch64-linux-gnu/include/features.h \
+ /usr/aarch64-linux-gnu/include/features-time64.h \
+ /usr/aarch64-linux-gnu/include/bits/wordsize.h \
+ /usr/aarch64-linux-gnu/include/bits/timesize.h \
+ /usr/aarch64-linux-gnu/include/sys/cdefs.h \
+ /usr/aarch64-linux-gnu/include/bits/long-double.h \
+ /usr/aarch64-linux-gnu/include/gnu/stubs.h \
+ /usr/aarch64-linux-gnu/include/gnu/stubs-lp64.h \
+ /usr/aarch64-linux-gnu/include/bits/types.h \
+ /usr/aarch64-linux-gnu/include/bits/typesizes.h \
+ /usr/aarch64-linux-gnu/include/bits/time64.h \
+ /usr/aarch64-linux-gnu/include/bits/wchar.h \
+ /usr/aarch64-linux-gnu/include/bits/stdint-intn.h \
+ /usr/aarch64-linux-gnu/include/bits/stdint-uintn.h \
+ /usr/aarch64-linux-gnu/include/bits/stdint-least.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stdbool.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/gpio.h \
+ /home/connor/bbb-sysroot/usr/include/gpiod.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stddef.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/bemf.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/bemf_sector.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/config/include/motor_config.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/hall_commutator.h \
+ /usr/aarch64-linux-gnu/include/string.h \
+ /usr/aarch64-linux-gnu/include/bits/types/locale_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__locale_t.h \
+ /usr/aarch64-linux-gnu/include/strings.h
