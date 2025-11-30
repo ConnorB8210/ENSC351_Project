@@ -1,0 +1,1 @@
+/usr/bin/aarch64-linux-gnu-gcc --sysroot=/home/connor/bbb-sysroot -Wl,--dependency-file=CMakeFiles/Motor_GPIO_Test.dir/link.d CMakeFiles/Motor_GPIO_Test.dir/src/motor_gpio_test.c.o -o Motor_GPIO_Test  ../motor/libmotor.a ../algorithms/libalgorithms.a ../hal/libhal.a ../config/libconfig.a -lgpiod -lpthread -lm

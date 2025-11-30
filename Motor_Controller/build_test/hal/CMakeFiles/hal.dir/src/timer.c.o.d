@@ -1,0 +1,36 @@
+hal/CMakeFiles/hal.dir/src/timer.c.o: \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/src/timer.c \
+ /usr/aarch64-linux-gnu/include/stdc-predef.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/timer.h \
+ /usr/aarch64-linux-gnu/include/time.h \
+ /usr/aarch64-linux-gnu/include/features.h \
+ /usr/aarch64-linux-gnu/include/features-time64.h \
+ /usr/aarch64-linux-gnu/include/bits/wordsize.h \
+ /usr/aarch64-linux-gnu/include/bits/timesize.h \
+ /usr/aarch64-linux-gnu/include/sys/cdefs.h \
+ /usr/aarch64-linux-gnu/include/bits/long-double.h \
+ /usr/aarch64-linux-gnu/include/gnu/stubs.h \
+ /usr/aarch64-linux-gnu/include/gnu/stubs-lp64.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stddef.h \
+ /usr/aarch64-linux-gnu/include/bits/time.h \
+ /usr/aarch64-linux-gnu/include/bits/types.h \
+ /usr/aarch64-linux-gnu/include/bits/typesizes.h \
+ /usr/aarch64-linux-gnu/include/bits/time64.h \
+ /usr/aarch64-linux-gnu/include/bits/types/clock_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/time_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_tm.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_timespec.h \
+ /usr/aarch64-linux-gnu/include/bits/endian.h \
+ /usr/aarch64-linux-gnu/include/bits/endianness.h \
+ /usr/aarch64-linux-gnu/include/bits/types/clockid_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/timer_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_itimerspec.h \
+ /usr/aarch64-linux-gnu/include/bits/types/locale_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__locale_t.h \
+ /usr/aarch64-linux-gnu/include/unistd.h \
+ /usr/aarch64-linux-gnu/include/bits/posix_opt.h \
+ /usr/aarch64-linux-gnu/include/bits/environments.h \
+ /usr/aarch64-linux-gnu/include/bits/confname.h \
+ /usr/aarch64-linux-gnu/include/bits/getopt_posix.h \
+ /usr/aarch64-linux-gnu/include/bits/getopt_core.h \
+ /usr/aarch64-linux-gnu/include/bits/unistd_ext.h

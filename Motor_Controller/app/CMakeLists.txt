@@ -8,6 +8,25 @@ add_executable(Motor_Controller
     src/udp_server.c
 )
 
+add_executable(Motor_GPIO_Test
+    src/motor_gpio_test.c
+)
+target_link_libraries(Motor_GPIO_Test
+    motor
+    algorithms
+    hal
+    config
+)
+
+# --- Include directories for app and libs ---
+target_include_directories(Motor_GPIO_Test PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include      # app/include
+    ${CMAKE_SOURCE_DIR}/hal/include          # HAL headers
+    ${CMAKE_SOURCE_DIR}/config               # motor_config.h, runtime .h
+    ${CMAKE_SOURCE_DIR}/motor/include        # motor_control.h etc (if present)
+    ${CMAKE_SOURCE_DIR}/algorithms/include   # bemf_sector.h etc (if present)
+)
+
 # --- Include directories for app and libs ---
 target_include_directories(Motor_Controller PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include      # app/include
