@@ -193,13 +193,13 @@ CMAKE_VERBOSE_MAKEFILE:BOOL=FALSE
 M_LIB:FILEPATH=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu/libm.so
 
 //Value Computed by CMake
-Motor_Controller_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/hal
+Motor_Controller_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1
 
 //Value Computed by CMake
-Motor_Controller_IS_TOP_LEVEL:STATIC=OFF
+Motor_Controller_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
-Motor_Controller_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal
+Motor_Controller_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller
 
 //Value Computed by CMake
 Motor_Controller_app_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app
@@ -209,6 +209,12 @@ Motor_Controller_app_IS_TOP_LEVEL:STATIC=OFF
 
 //Value Computed by CMake
 Motor_Controller_app_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/app
+
+//Arguments to supply to pkg-config
+PKG_CONFIG_ARGN:STRING=
+
+//pkg-config executable
+PKG_CONFIG_EXECUTABLE:FILEPATH=/usr/bin/pkg-config
 
 //Value Computed by CMake
 algorithms_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/algorithms
@@ -229,6 +235,15 @@ config_IS_TOP_LEVEL:STATIC=OFF
 config_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/config
 
 //Value Computed by CMake
+hal_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/hal
+
+//Value Computed by CMake
+hal_IS_TOP_LEVEL:STATIC=OFF
+
+//Value Computed by CMake
+hal_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal
+
+//Value Computed by CMake
 motor_BINARY_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/motor
 
 //Value Computed by CMake
@@ -236,6 +251,9 @@ motor_IS_TOP_LEVEL:STATIC=OFF
 
 //Value Computed by CMake
 motor_SOURCE_DIR:STATIC=/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor
+
+//Path to a library.
+pkgcfg_lib_LIBGPIOD_gpiod:FILEPATH=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu/libgpiod.so
 
 
 ########################
@@ -367,8 +385,54 @@ CMAKE_TAPI-ADVANCED:INTERNAL=1
 CMAKE_UNAME:INTERNAL=/usr/bin/uname
 //ADVANCED property for variable: CMAKE_VERBOSE_MAKEFILE
 CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
+//Details about finding PkgConfig
+FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig:INTERNAL=[/usr/bin/pkg-config][v1.8.1()]
+LIBGPIOD_CFLAGS:INTERNAL=-I/home/connor/bbb-sysroot/usr/include
+LIBGPIOD_CFLAGS_I:INTERNAL=
+LIBGPIOD_CFLAGS_OTHER:INTERNAL=
+LIBGPIOD_FOUND:INTERNAL=1
+LIBGPIOD_INCLUDEDIR:INTERNAL=/home/connor/bbb-sysroot/usr/include
+LIBGPIOD_INCLUDE_DIRS:INTERNAL=/home/connor/bbb-sysroot/usr/include
+LIBGPIOD_LDFLAGS:INTERNAL=-L/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu;-lgpiod
+LIBGPIOD_LDFLAGS_OTHER:INTERNAL=
+LIBGPIOD_LIBDIR:INTERNAL=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu
+LIBGPIOD_LIBRARIES:INTERNAL=gpiod
+LIBGPIOD_LIBRARY_DIRS:INTERNAL=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu
+LIBGPIOD_LIBS:INTERNAL=
+LIBGPIOD_LIBS_L:INTERNAL=
+LIBGPIOD_LIBS_OTHER:INTERNAL=
+LIBGPIOD_LIBS_PATHS:INTERNAL=
+LIBGPIOD_MODULE_NAME:INTERNAL=libgpiod
+LIBGPIOD_PREFIX:INTERNAL=/home/connor/bbb-sysroot/usr
+LIBGPIOD_STATIC_CFLAGS:INTERNAL=-I/home/connor/bbb-sysroot/usr/include
+LIBGPIOD_STATIC_CFLAGS_I:INTERNAL=
+LIBGPIOD_STATIC_CFLAGS_OTHER:INTERNAL=
+LIBGPIOD_STATIC_INCLUDE_DIRS:INTERNAL=/home/connor/bbb-sysroot/usr/include
+LIBGPIOD_STATIC_LDFLAGS:INTERNAL=-L/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu;-lgpiod
+LIBGPIOD_STATIC_LDFLAGS_OTHER:INTERNAL=
+LIBGPIOD_STATIC_LIBDIR:INTERNAL=
+LIBGPIOD_STATIC_LIBRARIES:INTERNAL=gpiod
+LIBGPIOD_STATIC_LIBRARY_DIRS:INTERNAL=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu
+LIBGPIOD_STATIC_LIBS:INTERNAL=
+LIBGPIOD_STATIC_LIBS_L:INTERNAL=
+LIBGPIOD_STATIC_LIBS_OTHER:INTERNAL=
+LIBGPIOD_STATIC_LIBS_PATHS:INTERNAL=
+LIBGPIOD_VERSION:INTERNAL=2.2.1
+LIBGPIOD_libgpiod_INCLUDEDIR:INTERNAL=
+LIBGPIOD_libgpiod_LIBDIR:INTERNAL=
+LIBGPIOD_libgpiod_PREFIX:INTERNAL=
+LIBGPIOD_libgpiod_VERSION:INTERNAL=
+//ADVANCED property for variable: PKG_CONFIG_ARGN
+PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
+PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
 //linker supports push/pop state
 _CMAKE_C_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
 //linker supports push/pop state
 _CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED:INTERNAL=TRUE
+__pkg_config_arguments_LIBGPIOD:INTERNAL=REQUIRED;libgpiod
+__pkg_config_checked_LIBGPIOD:INTERNAL=1
+//ADVANCED property for variable: pkgcfg_lib_LIBGPIOD_gpiod
+pkgcfg_lib_LIBGPIOD_gpiod-ADVANCED:INTERNAL=1
+prefix_result:INTERNAL=/home/connor/bbb-sysroot/usr/lib/aarch64-linux-gnu
 

@@ -3,10 +3,9 @@ project(algorithms C)
 
 add_library(algorithms STATIC
     src/bemf_sector.c
-       /filters.c
-       /pi_controller.c
+    src/filters.c
+    src/pi_controller.c
 )
-
 target_include_directories(algorithms
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
