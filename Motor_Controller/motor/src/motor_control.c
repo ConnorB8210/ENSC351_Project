@@ -19,8 +19,8 @@
 
 // Startup (open-loop) commutation settings
 #define STARTUP_DUTY             0.20f     // fixed duty during open-loop
-#define STARTUP_STEPS_TOTAL      36        // number of sector steps (e.g. 6 sectors * 6 revs)
-#define STARTUP_TICKS_PER_STEP   5         // how many slow-loop ticks per sector
+#define STARTUP_STEPS_TOTAL      36       // number of sector steps (e.g. 6 sectors * 6 revs)
+#define STARTUP_TICKS_PER_STEP   100        // how many slow-loop ticks per sector
 #define STARTUP_HANDOVER_RPM     50.0f     // when rpm_mech > this, hand over to RUN
 
 // PI controller defaults (for speed loop)
@@ -302,18 +302,18 @@ static void handle_align_state(void)
         }
     }
 
-    // If we've reached some RPM or finished the open-loop sequence,
-    // hand over to RUN.
+    // in handle_align_state(), replace the handover condition with:
     float rpm_abs = fabsf(s_ctx.meas.rpm_mech);
-    if (rpm_abs > STARTUP_HANDOVER_RPM ||
-        s_startup_step_count >= STARTUP_STEPS_TOTAL) {
-        s_startup_active     = 0;
-        s_ctx.state          = MOTOR_STATE_RUN;
-        // initialize PI state so it doesn't jump too hard
-        s_ctx.cmd.rpm_cmd    = s_rpm_cmd_request;
-        s_ctx.cmd.torque_cmd = STARTUP_DUTY;
-        PI_reset(&s_speed_pi);
-    }
+
+    // require BOTH: some RPM AND enough steps
+    if (rpm_abs > STARTUP_HANDOVER_RPM &&
+    s_startup_step_count >= STARTUP_STEPS_TOTAL/2) {
+    s_startup_active     = 0;
+    s_ctx.state          = MOTOR_STATE_RUN;
+    s_ctx.cmd.rpm_cmd    = s_rpm_cmd_request;
+    s_ctx.cmd.torque_cmd = STARTUP_DUTY;
+}
+
 }
 
 static void handle_run_state(float dt_s)

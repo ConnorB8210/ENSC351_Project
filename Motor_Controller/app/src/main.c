@@ -121,7 +121,7 @@ static int app_hw_init(void)
 
     // --- PWM motor / DRV8302 gate driver ---
     if (!PwmMotor_init(&g_pwm_motor,
-                       "/dev/gpiochip2",
+                       "/dev/hat/pwm",
                        INH_A_OFFSET, INL_A_OFFSET,
                        INH_B_OFFSET, INL_B_OFFSET,
                        INH_C_OFFSET, INL_C_OFFSET)) {

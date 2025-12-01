@@ -84,7 +84,7 @@
 // GPIO offsets (change to match your wiring!)
 #define HALL_A_OFFSET               7  //GPIO16
 #define HALL_B_OFFSET               15 //GPIO5
-#define HALL_C_OFFSET               17 //GPIO6
+#define HALL_C_OFFSET               11 //GPIO18
 
 // Timeout if no edges detected
 #define HALL_TIMEOUT_MS             200
@@ -94,10 +94,10 @@
 // ---------------------------------------------------------
 // These must match your board wiring to the GPIO chip
 #define INH_A_OFFSET                8  //GPIO17
-#define INL_A_OFFSET                11 //GPIO18
+#define INL_A_OFFSET                16 //GPIO12
 
-#define INH_B_OFFSET                12 //GPIO19
-#define INL_B_OFFSET                10 //GPIO20
+#define INH_B_OFFSET                17 //GPIO06
+#define INL_B_OFFSET                18 //GPIO13
 
 #define INH_C_OFFSET                9  //GPIO21
 #define INL_C_OFFSET                14 //GPIO14
