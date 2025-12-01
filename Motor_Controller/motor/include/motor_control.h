@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include "motor_states.h"
 #include "pwm_motor.h"
-
+#define MOTOR_DISABLE_BUS_FAULTS 1
 // Initialize motor control with a pointer to the phase driver
 void MotorControl_init(PwmMotor_t *pwm);
 

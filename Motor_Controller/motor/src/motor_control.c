@@ -2,18 +2,35 @@
 #include "motor_control.h"
 #include "motor_config.h"
 #include "position_estimator.h"
-#include <string.h>   // memset
-#include <math.h>     // fabsf
+#include "pi_controller.h"    // <-- use shared PI controller
+#include <string.h>           // memset
+#include <math.h>             // fabsf
 
 // ---------------- Tunable constants ----------------
+
 // Max allowed change in commanded speed per second (rpm/s)
 #define MOTOR_RPM_SLEW_RATE      2000.0f   // e.g. 2000 rpm per second
+
 // Threshold below which we consider the motor "stopped enough" to flip direction
 #define MOTOR_RPM_REV_THRESHOLD   100.0f   // rpm
+
 // Threshold below which we consider the motor fully stopped for IDLE
 #define MOTOR_RPM_STOP_THRESHOLD   50.0f   // rpm
 
+// Startup (open-loop) commutation settings
+#define STARTUP_DUTY             0.20f     // fixed duty during open-loop
+#define STARTUP_STEPS_TOTAL      36        // number of sector steps (e.g. 6 sectors * 6 revs)
+#define STARTUP_TICKS_PER_STEP   5         // how many slow-loop ticks per sector
+#define STARTUP_HANDOVER_RPM     50.0f     // when rpm_mech > this, hand over to RUN
+
+// PI controller defaults (for speed loop)
+#define SPEED_PI_KP_DEFAULT        0.0015f
+#define SPEED_PI_KI_DEFAULT        0.0005f
+#define SPEED_PI_OUT_MIN_DEFAULT   0.0f
+#define SPEED_PI_OUT_MAX_DEFAULT   1.0f
+
 // ---------------- Static context & handles ----------------
+
 static MotorContext_t s_ctx;
 static PwmMotor_t    *s_pwm = NULL;
 
@@ -26,47 +43,17 @@ static float s_rpm_cmd_request = 0.0f;  // last requested rpm (user/API)
 static bool  s_dir_current     = false; // actual direction (0=fwd,1=rev)
 static bool  s_dir_requested   = false; // requested direction
 
-// ---------------- Simple speed PI controller ----------------
-typedef struct {
-    float kp;
-    float ki;
-    float integrator;
-    float out_min;
-    float out_max;
-} SpeedPI_t;
+// Startup open-loop state
+static int      s_startup_active       = 0;
+static uint8_t  s_startup_sector       = 0;
+static uint32_t s_startup_step_count   = 0;
+static uint32_t s_startup_tick_in_step = 0;
 
-static SpeedPI_t s_speed_pi;
-
-// Reasonable defaults
-#define SPEED_PI_KP_DEFAULT        0.0015f
-#define SPEED_PI_KI_DEFAULT        0.0005f
-#define SPEED_PI_OUT_MIN_DEFAULT   0.0f
-#define SPEED_PI_OUT_MAX_DEFAULT   1.0f
-
-static void SpeedPI_init(SpeedPI_t *pi)
-{
-    memset(pi, 0, sizeof(*pi));
-    pi->kp      = SPEED_PI_KP_DEFAULT;
-    pi->ki      = SPEED_PI_KI_DEFAULT;
-    pi->out_min = SPEED_PI_OUT_MIN_DEFAULT;
-    pi->out_max = SPEED_PI_OUT_MAX_DEFAULT;
-}
-
-static float SpeedPI_step(SpeedPI_t *pi, float error)
-{
-    // Integrate
-    pi->integrator += pi->ki * error;
-    // Anti-windup: clamp integrator
-    if (pi->integrator > pi->out_max) pi->integrator = pi->out_max;
-    if (pi->integrator < pi->out_min) pi->integrator = pi->out_min;
-
-    float out = pi->kp * error + pi->integrator;
-    if (out > pi->out_max) out = pi->out_max;
-    if (out < pi->out_min) out = pi->out_min;
-    return out;
-}
+// Shared PI controller instance (from pi_controller.c)
+static PI_Controller_t s_speed_pi;
 
 // ---------------- Slew‑rate & direction logic ----------------
+
 // Update s_rpm_cmd_target and direction based on requested values and actual speed.
 static void update_target_and_direction(void)
 {
@@ -98,8 +85,8 @@ static void update_speed_slew(void)
 {
     // Per-step max change in RPM, based on configured slow loop rate
     float max_step = MOTOR_RPM_SLEW_RATE / (float)SPEED_LOOP_HZ;
-    float diff = s_rpm_cmd_target - s_ctx.cmd.rpm_cmd;
 
+    float diff = s_rpm_cmd_target - s_ctx.cmd.rpm_cmd;
     if (diff > max_step) {
         diff = max_step;
     } else if (diff < -max_step) {
@@ -114,6 +101,7 @@ static void update_speed_slew(void)
 }
 
 // ---------------- Public API ----------------
+
 void MotorControl_init(PwmMotor_t *pwm)
 {
     s_pwm = pwm;
@@ -132,7 +120,20 @@ void MotorControl_init(PwmMotor_t *pwm)
     s_dir_current       = false;   // forward
     s_dir_requested     = false;
 
-    SpeedPI_init(&s_speed_pi);
+    // startup state
+    s_startup_active       = 0;
+    s_startup_sector       = 0;
+    s_startup_step_count   = 0;
+    s_startup_tick_in_step = 0;
+
+    // Initialize the shared speed PI controller
+    float Ts = 1.0f / (float)SPEED_LOOP_HZ;  // slow-loop period
+    PI_init(&s_speed_pi,
+            SPEED_PI_KP_DEFAULT,
+            SPEED_PI_KI_DEFAULT,
+            Ts,
+            SPEED_PI_OUT_MIN_DEFAULT,
+            SPEED_PI_OUT_MAX_DEFAULT);
 
     if (s_pwm) {
         PwmMotor_stop(s_pwm);      // ensure outputs off
@@ -195,34 +196,40 @@ void MotorControl_clearFault(void)
     s_ctx.cmd.enable     = false;
     s_ctx.cmd.rpm_cmd    = 0.0f;
     s_ctx.cmd.torque_cmd = 0.0f;
-
     s_rpm_cmd_target     = 0.0f;
     s_rpm_cmd_request    = 0.0f;
     s_duty_cmd           = 0.0f;
 
+    // Reset startup sequence
+    s_startup_active       = 0;
+    s_startup_sector       = 0;
+    s_startup_step_count   = 0;
+    s_startup_tick_in_step = 0;
+
+    // Reset PI integrator
+    PI_reset(&s_speed_pi);
     // Don't touch s_dir_current / s_dir_requested; let host decide direction.
 }
 
 void MotorControl_updateBusVoltage(float vbus)
 {
-    // Store in measurement struct
     s_ctx.meas.v_bus = vbus;
 
-    // If we're already in FAULT, don't spam more faults
     if (s_ctx.state == MOTOR_STATE_FAULT) {
         return;
     }
 
-    // Simple OV / UV checking
+#ifndef MOTOR_DISABLE_BUS_FAULTS
     if (vbus > MOTOR_BUS_V_MAX_V) {
         MotorControl_setFault(MOTOR_FAULT_OVERVOLT);
     } else if (vbus < MOTOR_BUS_V_MIN_V && vbus > 0.1f) {
-        // small >0 to ignore noise when bus is basically off
         MotorControl_setFault(MOTOR_FAULT_UNDERVOLT);
     }
+#endif
 }
 
 // ---------------- Internal helpers ----------------
+
 static void update_measurements(void)
 {
     // Use Position Estimator for RPM; it already pulls from SpeedMeasurement
@@ -233,9 +240,9 @@ static void update_measurements(void)
 }
 
 // State handlers
+
 static void handle_idle_state(void)
 {
-    // In IDLE, keep outputs off
     s_duty_cmd = 0.0f;
     if (s_pwm) {
         PwmMotor_stop(s_pwm);
@@ -244,20 +251,69 @@ static void handle_idle_state(void)
     // Transition out of IDLE when enable is asserted and user
     // actually wants some non-zero speed
     if (s_ctx.cmd.enable && s_rpm_cmd_request > 0.0f) {
-        s_ctx.state = MOTOR_STATE_RUN;
+        // initialize startup sequence
+        s_startup_active       = 1;
+        s_startup_step_count   = 0;
+        s_startup_tick_in_step = 0;
+
+        // try to start from current hall sector if valid, else 0
+        PosEst_t pe = PosEst_get();
+        if (pe.sector < 6) {
+            s_startup_sector = pe.sector;
+        } else {
+            s_startup_sector = 0;
+        }
+
+        s_ctx.state = MOTOR_STATE_ALIGN;   // use ALIGN as "startup" state
     }
 }
 
 static void handle_align_state(void)
 {
-    // Placeholder for alignment logic
-    s_duty_cmd = 0.0f;
-    if (s_pwm) {
-        PwmMotor_stop(s_pwm);
+    // Open-loop 6-step startup.
+    // We ignore the PI loop here and just drive a fixed duty and manually
+    // advance sector. Once the rotor has some speed (or we've done enough
+    // steps), we transition to RUN and let the normal loop take over.
+
+    // If somehow disabled or user zeroed the command, bail back to IDLE:
+    if (!s_ctx.cmd.enable || s_rpm_cmd_request <= 0.0f) {
+        s_ctx.state          = MOTOR_STATE_IDLE;
+        s_startup_active     = 0;
+        s_ctx.cmd.rpm_cmd    = 0.0f;
+        s_ctx.cmd.torque_cmd = 0.0f;
+        s_duty_cmd           = 0.0f;
+        if (s_pwm) {
+            PwmMotor_stop(s_pwm);
+        }
+        return;
     }
 
-    // For now: quick "fake" align -> RUN
-    s_ctx.state = MOTOR_STATE_RUN;
+    // Force a known duty during startup
+    s_ctx.cmd.torque_cmd = STARTUP_DUTY;
+    s_duty_cmd           = STARTUP_DUTY;
+
+    // Update counters at slow-loop rate
+    if (s_startup_active) {
+        s_startup_tick_in_step++;
+        if (s_startup_tick_in_step >= STARTUP_TICKS_PER_STEP) {
+            s_startup_tick_in_step = 0;
+            s_startup_step_count++;
+            s_startup_sector = (uint8_t)((s_startup_sector + 1) % 6);
+        }
+    }
+
+    // If we've reached some RPM or finished the open-loop sequence,
+    // hand over to RUN.
+    float rpm_abs = fabsf(s_ctx.meas.rpm_mech);
+    if (rpm_abs > STARTUP_HANDOVER_RPM ||
+        s_startup_step_count >= STARTUP_STEPS_TOTAL) {
+        s_startup_active     = 0;
+        s_ctx.state          = MOTOR_STATE_RUN;
+        // initialize PI state so it doesn't jump too hard
+        s_ctx.cmd.rpm_cmd    = s_rpm_cmd_request;
+        s_ctx.cmd.torque_cmd = STARTUP_DUTY;
+        PI_reset(&s_speed_pi);
+    }
 }
 
 static void handle_run_state(float dt_s)
@@ -280,9 +336,17 @@ static void handle_run_state(float dt_s)
         return;
     }
 
-    // Speed PI: error = (slewed command) - measured
-    float error_rpm = s_ctx.cmd.rpm_cmd - s_ctx.meas.rpm_mech;
-    float duty      = SpeedPI_step(&s_speed_pi, error_rpm);
+    // Speed PI: ref = slewed rpm command, meas = actual rpm
+    PI_Status_t pi_status;
+    float duty = PI_step(&s_speed_pi,
+                         s_ctx.cmd.rpm_cmd,      // ref
+                         s_ctx.meas.rpm_mech,    // meas
+                         true,                   // use anti-windup
+                         &pi_status);            // optional, can be ignored
+
+    // Clamp for safety as well
+    if (duty < 0.0f) duty = 0.0f;
+    if (duty > 1.0f) duty = 1.0f;
 
     // This is also our "torque command" for now (0..1)
     s_ctx.cmd.torque_cmd = duty;
@@ -298,12 +362,14 @@ static void handle_fault_state(void)
     s_rpm_cmd_target      = 0.0f;
     s_rpm_cmd_request     = 0.0f;
     s_duty_cmd            = 0.0f;
+
     if (s_pwm) {
         PwmMotor_stop(s_pwm);
     }
 }
 
 // ---------------- Slow loop ----------------
+
 void MotorControl_stepSlow(void)
 {
     // NOTE: This is called from slow loop (e.g. SPEED_LOOP_HZ Hz)
@@ -346,13 +412,11 @@ void MotorControl_stepSlow(void)
 }
 
 // ---------------- Fast loop ----------------
+
 void MotorControl_stepFast(void)
 {
-    // NOTE: This is called from fast loop (e.g. FAST_LOOP_HZ)
-    // If not in RUN or enable is false or we’re in FAULT: outputs off
-    if (s_ctx.state != MOTOR_STATE_RUN ||
-        !s_ctx.cmd.enable ||
-        s_ctx.fault != MOTOR_FAULT_NONE) {
+    // If disabled or faulted, always turn everything off.
+    if (!s_ctx.cmd.enable || s_ctx.fault != MOTOR_FAULT_NONE) {
         s_duty_cmd = 0.0f;
         if (s_pwm) {
             PwmMotor_stop(s_pwm);
@@ -360,23 +424,47 @@ void MotorControl_stepFast(void)
         return;
     }
 
-    // Get latest position estimate
-    PosEst_t pe = PosEst_get();
+    // ALIGN = open-loop startup
+    if (s_ctx.state == MOTOR_STATE_ALIGN) {
+        // Use the startup sector and fixed duty
+        uint8_t sector = s_startup_sector;
+        if (sector >= 6) {
+            sector = 0;
+        }
 
-    // Sector is 0..5 for 6-step
+        float duty = s_ctx.cmd.torque_cmd;
+        if (duty < 0.0f) duty = 0.0f;
+        if (duty > 1.0f) duty = 1.0f;
+
+        bool dir_fwd = (s_ctx.cmd.direction == 0);
+        if (s_pwm) {
+            PwmMotor_setSixStep(s_pwm, sector, duty, dir_fwd);
+        }
+        return;
+    }
+
+    // Normal RUN mode (closed-loop with PI)
+    if (s_ctx.state != MOTOR_STATE_RUN) {
+        // any other state => outputs off
+        s_duty_cmd = 0.0f;
+        if (s_pwm) {
+            PwmMotor_stop(s_pwm);
+        }
+        return;
+    }
+
+    // RUN: use estimator sector + PI duty
+    PosEst_t pe = PosEst_get();
     uint8_t sector = pe.sector;
     if (sector >= 6) {
-        // Invalid sector -> treat as timing/position fault
         MotorControl_setFault(MOTOR_FAULT_TIMING);
         return;
     }
 
-    // Use torque_cmd (0..1) as duty
     float duty = s_ctx.cmd.torque_cmd;
     if (duty < 0.0f) duty = 0.0f;
     if (duty > 1.0f) duty = 1.0f;
 
-    // Direction: 0 = forward, 1 = reverse (we keep s_ctx.cmd.direction in sync)
     bool dir_fwd = (s_ctx.cmd.direction == 0);
     if (s_pwm) {
         PwmMotor_setSixStep(s_pwm, sector, duty, dir_fwd);

@@ -130,6 +130,20 @@ Motor_Controller/fast:
 	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_Controller.dir/build.make app/CMakeFiles/Motor_Controller.dir/build
 .PHONY : Motor_Controller/fast
 
+# Convenience name for target.
+app/CMakeFiles/Motor_GPIO_Test.dir/rule:
+	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 app/CMakeFiles/Motor_GPIO_Test.dir/rule
+.PHONY : app/CMakeFiles/Motor_GPIO_Test.dir/rule
+
+# Convenience name for target.
+Motor_GPIO_Test: app/CMakeFiles/Motor_GPIO_Test.dir/rule
+.PHONY : Motor_GPIO_Test
+
+# fast build rule for target.
+Motor_GPIO_Test/fast:
+	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_GPIO_Test.dir/build.make app/CMakeFiles/Motor_GPIO_Test.dir/build
+.PHONY : Motor_GPIO_Test/fast
+
 src/main.o: src/main.c.o
 .PHONY : src/main.o
 
@@ -153,6 +167,30 @@ src/main.s: src/main.c.s
 src/main.c.s:
 	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_Controller.dir/build.make app/CMakeFiles/Motor_Controller.dir/src/main.c.s
 .PHONY : src/main.c.s
+
+src/motor_gpio_test.o: src/motor_gpio_test.c.o
+.PHONY : src/motor_gpio_test.o
+
+# target to build an object file
+src/motor_gpio_test.c.o:
+	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_GPIO_Test.dir/build.make app/CMakeFiles/Motor_GPIO_Test.dir/src/motor_gpio_test.c.o
+.PHONY : src/motor_gpio_test.c.o
+
+src/motor_gpio_test.i: src/motor_gpio_test.c.i
+.PHONY : src/motor_gpio_test.i
+
+# target to preprocess a source file
+src/motor_gpio_test.c.i:
+	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_GPIO_Test.dir/build.make app/CMakeFiles/Motor_GPIO_Test.dir/src/motor_gpio_test.c.i
+.PHONY : src/motor_gpio_test.c.i
+
+src/motor_gpio_test.s: src/motor_gpio_test.c.s
+.PHONY : src/motor_gpio_test.s
+
+# target to generate assembly for a file
+src/motor_gpio_test.c.s:
+	cd /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1 && $(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_GPIO_Test.dir/build.make app/CMakeFiles/Motor_GPIO_Test.dir/src/motor_gpio_test.c.s
+.PHONY : src/motor_gpio_test.c.s
 
 src/status_display.o: src/status_display.c.o
 .PHONY : src/status_display.o
@@ -211,9 +249,13 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... Motor_Controller"
+	@echo "... Motor_GPIO_Test"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
 	@echo "... src/main.s"
+	@echo "... src/motor_gpio_test.o"
+	@echo "... src/motor_gpio_test.i"
+	@echo "... src/motor_gpio_test.s"
 	@echo "... src/status_display.o"
 	@echo "... src/status_display.i"
 	@echo "... src/status_display.s"

@@ -181,6 +181,19 @@ Motor_Controller/fast:
 	$(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_Controller.dir/build.make app/CMakeFiles/Motor_Controller.dir/build
 .PHONY : Motor_Controller/fast
 
+#=============================================================================
+# Target rules for targets named Motor_GPIO_Test
+
+# Build rule for target.
+Motor_GPIO_Test: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 Motor_GPIO_Test
+.PHONY : Motor_GPIO_Test
+
+# fast build rule for target.
+Motor_GPIO_Test/fast:
+	$(MAKE) $(MAKESILENT) -f app/CMakeFiles/Motor_GPIO_Test.dir/build.make app/CMakeFiles/Motor_GPIO_Test.dir/build
+.PHONY : Motor_GPIO_Test/fast
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -190,6 +203,7 @@ help:
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
 	@echo "... Motor_Controller"
+	@echo "... Motor_GPIO_Test"
 	@echo "... algorithms"
 	@echo "... config"
 	@echo "... hal"

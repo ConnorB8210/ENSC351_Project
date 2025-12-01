@@ -20,7 +20,19 @@ hal/CMakeFiles/hal.dir/src/pwm_motor.c.o: \
  /usr/aarch64-linux-gnu/include/bits/stdint-uintn.h \
  /usr/aarch64-linux-gnu/include/bits/stdint-least.h \
  /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stdbool.h \
+ /usr/aarch64-linux-gnu/include/stdio.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stddef.h \
+ /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stdarg.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__mbstate_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__fpos64_t.h \
+ /usr/aarch64-linux-gnu/include/bits/types/__FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/struct_FILE.h \
+ /usr/aarch64-linux-gnu/include/bits/types/cookie_io_functions_t.h \
+ /usr/aarch64-linux-gnu/include/bits/stdio_lim.h \
+ /usr/aarch64-linux-gnu/include/bits/floatn.h \
+ /usr/aarch64-linux-gnu/include/bits/floatn-common.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/pwm_motor.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/gpio.h \
- /home/connor/bbb-sysroot/usr/include/gpiod.h \
- /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stddef.h
+ /home/connor/bbb-sysroot/usr/include/gpiod.h

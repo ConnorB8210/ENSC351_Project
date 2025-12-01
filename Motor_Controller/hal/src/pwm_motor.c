@@ -2,13 +2,14 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
+#include <stdio.h>
 #include "pwm_motor.h"   // brings in gpio.h and PwmMotor_t
-
+#define PWM_DEBUG 1 
 // ---------------- Internal helpers ----------------
 
 // Helper to drive one phase using simple GPIO high/low logic.
 static void set_phase_gpio(GPIO_Handle *gpio,
+                           const char *name,
                            bool active,
                            int sign,
                            unsigned int inh_idx,
@@ -16,19 +17,40 @@ static void set_phase_gpio(GPIO_Handle *gpio,
 {
     if (!gpio) return;
 
+    int inh_val = 0;
+    int inl_val = 0;
+
     if (!active || sign == 0) {
         // Off / float
-        gpio_write(gpio, inh_idx, 0);
-        gpio_write(gpio, inl_idx, 0);
+        inh_val = 0;
+        inl_val = 0;
     } else if (sign > 0) {
         // High-side on, low-side off
-        gpio_write(gpio, inh_idx, 1);
-        gpio_write(gpio, inl_idx, 0);
+        inh_val = 1;
+        inl_val = 0;
     } else {
         // Low-side on, high-side off
-        gpio_write(gpio, inh_idx, 0);
-        gpio_write(gpio, inl_idx, 1);
+        inh_val = 0;
+        inl_val = 1;
     }
+
+#if PWM_DEBUG
+    // Track last values so we only print when something changes
+    static int last_inh_val[6] = { -1, -1, -1, -1, -1, -1 };
+    static int last_inl_val[6] = { -1, -1, -1, -1, -1, -1 };
+
+    if (last_inh_val[inh_idx] != inh_val || last_inl_val[inl_idx] != inl_val) {
+        last_inh_val[inh_idx] = inh_val;
+        last_inl_val[inl_idx] = inl_val;
+
+        printf("PWM DBG %s: INH(idx=%u)=%d  INL(idx=%u)=%d\n",
+               name, inh_idx, inh_val, inl_idx, inl_val);
+        fflush(stdout);
+    }
+#endif
+
+    gpio_write(gpio, inh_idx, inh_val);
+    gpio_write(gpio, inl_idx, inl_val);
 }
 
 // Map a 6-step sector + direction into (u,v,w) signs (+1, -1, 0)
@@ -161,10 +183,9 @@ void PwmMotor_applyPhaseState(PwmMotor_t *m,
     }
 
     bool active = (duty > 0.0f);
-
-    set_phase_gpio(m->gpio, active, u, m->inh_a_idx, m->inl_a_idx);
-    set_phase_gpio(m->gpio, active, v, m->inh_b_idx, m->inl_b_idx);
-    set_phase_gpio(m->gpio, active, w, m->inh_c_idx, m->inl_c_idx);
+    set_phase_gpio(m->gpio, "A", active, u, m->inh_a_idx, m->inl_a_idx);
+    set_phase_gpio(m->gpio, "B", active, v, m->inh_b_idx, m->inl_b_idx);
+    set_phase_gpio(m->gpio, "C", active, w, m->inh_c_idx, m->inl_c_idx);
 }
 
 // Drive all outputs low and release GPIO handle.

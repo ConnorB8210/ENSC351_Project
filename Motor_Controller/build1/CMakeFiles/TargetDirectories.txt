@@ -13,5 +13,6 @@
 /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/motor/CMakeFiles/edit_cache.dir
 /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/motor/CMakeFiles/rebuild_cache.dir
 /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app/CMakeFiles/Motor_Controller.dir
+/home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app/CMakeFiles/Motor_GPIO_Test.dir
 /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app/CMakeFiles/edit_cache.dir
 /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/build1/app/CMakeFiles/rebuild_cache.dir

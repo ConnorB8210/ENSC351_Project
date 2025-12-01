@@ -130,4 +130,5 @@ set(CMAKE_DEPEND_INFO_FILES
   "algorithms/CMakeFiles/algorithms.dir/DependInfo.cmake"
   "motor/CMakeFiles/motor.dir/DependInfo.cmake"
   "app/CMakeFiles/Motor_Controller.dir/DependInfo.cmake"
+  "app/CMakeFiles/Motor_GPIO_Test.dir/DependInfo.cmake"
   )
