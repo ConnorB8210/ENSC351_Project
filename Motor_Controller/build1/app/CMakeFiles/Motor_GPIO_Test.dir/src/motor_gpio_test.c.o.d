@@ -115,9 +115,9 @@ app/CMakeFiles/Motor_GPIO_Test.dir/src/motor_gpio_test.c.o: \
  /usr/aarch64-linux-gnu/include/bits/types/__locale_t.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/config/include/motor_config.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/pwm_motor.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/gpio.h \
  /home/connor/bbb-sysroot/usr/include/gpiod.h \
- /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/hall_commutator.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/bemf.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/adc.h \

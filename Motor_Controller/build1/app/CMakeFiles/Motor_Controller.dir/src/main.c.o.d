@@ -134,9 +134,9 @@ app/CMakeFiles/Motor_Controller.dir/src/main.c.o: \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/motor_states.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/motor_control.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/pwm_motor.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/gpio.h \
  /home/connor/bbb-sysroot/usr/include/gpiod.h \
- /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/bemf.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/adc.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/position_estimator.h \

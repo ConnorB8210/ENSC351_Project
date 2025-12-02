@@ -93,14 +93,14 @@
 // DRV8302 / PWM pinout configuration
 // ---------------------------------------------------------
 // These must match your board wiring to the GPIO chip
-#define INH_A_OFFSET                8  //GPIO17
-#define INL_A_OFFSET                16 //GPIO12
+#define INH_A_OFFSET                17 //GPIO17 -- 8
+#define INL_A_OFFSET                12 //GPIO12 -- 16
 
-#define INH_B_OFFSET                17 //GPIO06
-#define INL_B_OFFSET                18 //GPIO13
+#define INH_B_OFFSET                6  //GPIO06 -- 17
+#define INL_B_OFFSET                13 //GPIO13 -- 18
 
-#define INH_C_OFFSET                9  //GPIO21
-#define INL_C_OFFSET                14 //GPIO14
+#define INH_C_OFFSET                21 //GPIO21 -- 9
+#define INL_C_OFFSET                14 //GPIO14 -- 14
 
 // DRV8302 management pins (optional)
 #define DRV_EN_GATE_OFFSET          41 //GPIO22

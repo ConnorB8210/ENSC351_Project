@@ -25,11 +25,11 @@ app/CMakeFiles/Motor_Controller.dir/src/status_display.c.o: \
  /usr/aarch64-linux-gnu/include/bits/stdint-least.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/config/include/motor_config.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/pwm_motor.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/position_estimator.h \
+ /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/gpio.h \
  /home/connor/bbb-sysroot/usr/include/gpiod.h \
  /usr/lib/gcc-cross/aarch64-linux-gnu/14/include/stddef.h \
- /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/motor/include/position_estimator.h \
- /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/hall.h \
  /home/connor/ENSC351/work/ENSC351_Project/ENSC351_Project/Motor_Controller/hal/include/bemf.h \
  /usr/aarch64-linux-gnu/include/pthread.h \
  /usr/aarch64-linux-gnu/include/sched.h \
